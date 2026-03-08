@@ -44,7 +44,3 @@ MealMind/
 
 **AI Product Development (AI-4013)** — Semester 8  
 Instructor: **Dr. Basharat Hussain**
-
-## 📄 License
-
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
