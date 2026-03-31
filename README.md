@@ -1,50 +1,79 @@
-# 🍽️ MealMind
+# MealMind 🍊
 
-**Reducing Daily Meal Decision Fatigue**
+An AI-powered meal recommendation assistant designed to eliminate decision fatigue daily. Developed as an MVP with a completely decoupled MVC architecture separating the React Frontend and Express Backend.
 
-MealMind is an AI-powered tool that helps people make meal decisions with less mental effort by considering personal constraints like budget, nutrition goals, and available ingredients — right when a decision is needed.
+## Project Architecture
 
-## 📌 Problem Statement
+This repository contains two completely isolated environments:
+1. **`frontend/`**: The Next.js (React) web application. It handles the premium Glassmorphism UI and Firebase Authentication.
+2. **`backend/`**: A Node.js and Express.js REST API. It handles the secure integration with the Google Gemini AI Model and processes the culinary constraints.
 
-People waste significant time and mental energy deciding what to eat while trying to balance nutrition, budget, and personal preferences. This decision fatigue occurs multiple times daily and leads to overspending, unhealthy eating, food waste, and daily stress.
+---
 
-## 🎯 Target Users
+## Prerequisites
 
-- **Budget-conscious young professionals** (22–35) trying to eat healthy on entry-level salaries
-- **Health-conscious individuals** tracking nutrition for fitness or medical conditions
-- **Busy parents** managing household budgets and family meals
-- **Students** with limited budgets and cooking skills
+Before you start, make sure you have the following installed on your machine:
+- [Node.js](https://nodejs.org/) (v16.x or higher)
+- A [Firebase Project](https://console.firebase.google.com/) equipped with Email/Password Authentication.
+- A [Google Gemini API Key](https://aistudio.google.com/).
 
-## 🛠️ Tech Stack
+---
 
-*To be decided in future phases.*
+## Installation & Setup
 
-## 📂 Project Structure
+You must install dependencies for **both** the frontend and backend separately. 
 
+### 1. Set Up the Backend
+The backend requires your Gemini API key strictly to securely connect to the AI model. 
+
+```bash
+cd backend
+npm install
 ```
-MealMind/
-├── frontend/       # Frontend application
-├── backend/        # Backend API & services
-├── docs/           # Project documentation & phase reports
-├── .gitignore
-├── LICENSE
-└── README.md
+
+Create a deeply hidden `.env` file inside the `backend/` folder and paste your key:
+```env
+GEMINI_API_KEY="your_actual_gemini_api_key_here"
 ```
 
-## 👥 Team
+### 2. Set Up the Frontend
+The frontend requires your Firebase project keys to allow users to sign up securely. 
 
-| Name              | Roll Number |
-|-------------------|-------------|
-| Hafsa Imtiaz      | 22i-0959    |
-| Mahum Hamid       | 22i-1009    |
-| Areeba Riaz       | 22i-1244    |
-| Jawairia Waseem   | 22i-1274    |
+```bash
+cd ../frontend
+npm install
+```
 
-## 📚 Course
+Create a hidden `.env.local` file inside the `frontend/` folder entirely in this format:
+```env
+NEXT_PUBLIC_FIREBASE_API_KEY="your_api_key_from_firebase"
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="your_firebase_domain"
+NEXT_PUBLIC_FIREBASE_PROJECT_ID="your_project_id"
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="your_storage_bucket"
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="your_sender_id"
+NEXT_PUBLIC_FIREBASE_APP_ID="your_app_id"
+```
+*(Note: If you omit the Firebase keys, the frontend UI will still render beautifully in "Read-Only Mock Mode", but you won't be able to log in or create database accounts until they are provided).*
 
-**AI Product Development (AI-4013)** — Semester 8  
-Instructor: **Dr. Basharat Hussain**
+---
 
-## 📄 License
+## Running the Application Locally
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+For the AI Chef to successfully answer your questions on the site, **both servers must be running at the exact same time.**
+
+### 1. Start the Backend API (Terminal 1)
+```bash
+cd backend
+node server.js
+```
+*You should see a success log explicitly stating: `✅ MealMind Backend running perfectly on http://localhost:5000`*
+
+### 2. Start the Frontend React App (Terminal 2)
+Open a completely new terminal window alongside the other one:
+```bash
+cd frontend
+npm run dev
+```
+
+### 3. Open the App
+Go to [http://localhost:3000](http://localhost:3000) in your web browser. Type ingredients into the AI Dashboard and you will see the frontend ping your local Express API, which consults Gemini, and returns the customized recipe natively!
