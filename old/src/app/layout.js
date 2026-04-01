@@ -1,6 +1,6 @@
 import './globals.css';
-import Navbar from '../components/Navbar';
-import { AuthProvider } from '../context/AuthContext';
+import Navbar from '../../../my-app/src/components/Navbar';
+import { AuthProvider } from '../../../my-app/src/context/AuthContext';
 
 export const metadata = {
   title: 'MealMind | Stop stressing about what to eat',

@@ -46,12 +46,12 @@ npm install
 
 Create a hidden `.env.local` file inside the `frontend/` folder entirely in this format:
 ```env
-NEXT_PUBLIC_FIREBASE_API_KEY="your_api_key_from_firebase"
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="your_firebase_domain"
-NEXT_PUBLIC_FIREBASE_PROJECT_ID="your_project_id"
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="your_storage_bucket"
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="your_sender_id"
-NEXT_PUBLIC_FIREBASE_APP_ID="your_app_id"
+VITE_FIREBASE_API_KEY="your_api_key_from_firebase"
+VITE_FIREBASE_AUTH_DOMAIN="your_firebase_domain"
+VITE_FIREBASE_PROJECT_ID="your_project_id"
+VITE_FIREBASE_STORAGE_BUCKET="your_storage_bucket"
+VITE_FIREBASE_MESSAGING_SENDER_ID="your_sender_id"
+VITE_FIREBASE_APP_ID="your_app_id"
 ```
 *(Note: If you omit the Firebase keys, the frontend UI will still render beautifully in "Read-Only Mock Mode", but you won't be able to log in or create database accounts until they are provided).*
 

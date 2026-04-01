@@ -9,8 +9,23 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
-// Allow frontend to make requests
-app.use(cors({ origin: "http://localhost:3000" }));
+// Allow frontend to make requests.
+// In dev the Vite proxy forwards /api/* so the browser never hits this directly,
+// but we list common origins as a safety net and for direct testing.
+const ALLOWED_ORIGINS = [
+  "http://localhost:5173", // Vite default
+  "http://localhost:5174", // Vite fallback port
+  "http://localhost:4173", // Vite preview
+  process.env.FRONTEND_URL, // Production origin (set in .env)
+].filter(Boolean);
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (e.g. Postman, curl, server-to-server)
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    callback(new Error(`CORS: origin ${origin} not allowed`));
+  },
+}));
 
 app.post("/api/recommend", async (req, res) => {
   try {

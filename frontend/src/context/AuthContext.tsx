@@ -1,19 +1,34 @@
-"use client";
 import { createContext, useContext, useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 
-const AuthContext = createContext({});
+interface AuthUser {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+}
 
-export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+interface AuthContextType {
+  user: AuthUser | null;
+  loading: boolean;
+}
+
+const AuthContext = createContext<AuthContextType>({ user: null, loading: true });
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // If we only have a mock connection, or missing env vars, don't crash
-    if (!process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
-      console.warn("Firebase config not found! Running in read-only mock mode.");
-      // eslint-disable-next-line consistent-return
+    if (!import.meta.env.VITE_FIREBASE_API_KEY) {
+      console.warn('Firebase config not found. Running in mock mode.');
+      setLoading(false);
+      return;
+    }
+
+    if (!auth) {
+      setLoading(false);
       return;
     }
 
@@ -35,7 +50,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{ user, loading }}>
-        {children}
+      {children}
     </AuthContext.Provider>
   );
 }
