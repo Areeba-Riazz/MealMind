@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import RequireAuth from './components/RequireAuth';
 import AppShellLayout from './components/AppShellLayout';
@@ -9,8 +9,6 @@ import DemoPage from './pages/DemoPage';
 import Cravings from './pages/Cravings';
 import DashboardPage from './pages/DashboardPage';
 import ProfilePage from './pages/ProfilePage';
-import PreferencesPage from './pages/PreferencesPage';
-import DietaryPage from './pages/DietaryPage';
 import SavedRecipesPage from './pages/SavedRecipesPage';
 import FoodLinksPage from './pages/FoodLinksPage';
 import OnboardingPage from './pages/OnboardingPage';
@@ -30,8 +28,8 @@ export default function App() {
               <Route path="/demo" element={<DemoPage />} />
               <Route path="/cravings" element={<Cravings />} />
               <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/preferences" element={<PreferencesPage />} />
-              <Route path="/dietary" element={<DietaryPage />} />
+              <Route path="/preferences" element={<Navigate to="/profile" replace />} />
+              <Route path="/dietary" element={<Navigate to="/profile" replace />} />
               <Route path="/saved" element={<SavedRecipesPage />} />
               <Route path="/food-links" element={<FoodLinksPage />} />
               <Route path="/onboarding" element={<OnboardingPage />} />
