@@ -141,3 +141,338 @@ body {
 .animate-fade-in {
   animation: fadeIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+
+/* ── Authenticated app shell (sidebar + main) — structural only ── */
+.mm-app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.mm-app-shell__main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 1rem;
+}
+
+.mm-sidebar {
+  display: flex;
+  flex-direction: column;
+  width: 13rem;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  padding: 0.75rem;
+}
+
+.mm-sidebar__brand a {
+  color: inherit;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.mm-sidebar__nav ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mm-sidebar__nav li {
+  margin: 0.15rem 0;
+}
+
+.mm-sidebar__link {
+  display: block;
+  padding: 0.35rem 0.25rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.mm-sidebar__link--active {
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.mm-sidebar__footer {
+  margin-top: auto;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.88rem;
+}
+
+.mm-sidebar__user {
+  margin-bottom: 0.5rem;
+  word-break: break-word;
+}
+
+.mm-sidebar__logout {
+  font: inherit;
+  cursor: pointer;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: inherit;
+  border-radius: 4px;
+}
+
+/* ── Authenticated placeholder pages ── */
+.mm-page {
+  max-width: 920px;
+  margin: 0 auto;
+}
+
+.mm-page__header {
+  margin-bottom: 1.25rem;
+}
+
+.mm-page__title {
+  font-family: 'Syne', sans-serif;
+  font-weight: 800;
+  font-size: 1.65rem;
+  letter-spacing: -0.5px;
+  margin: 0 0 0.35rem;
+  line-height: 1.15;
+}
+
+.mm-page__desc {
+  color: var(--muted);
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.mm-page__panel {
+  padding: 1.5rem 1.75rem !important;
+}
+
+.mm-page__section-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 0 0 0.75rem;
+}
+
+.mm-page__section-title:not(:first-child) {
+  margin-top: 1.5rem;
+}
+
+.mm-placeholder-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  background: rgba(232, 82, 42, 0.15);
+  color: var(--accent2);
+  border: 1px solid rgba(232, 82, 42, 0.35);
+  margin-bottom: 0.75rem;
+}
+
+.mm-dash-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.75rem;
+}
+
+.mm-dash-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  padding: 1rem;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border2);
+  text-decoration: none;
+  color: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.mm-dash-tile:hover {
+  border-color: rgba(232, 82, 42, 0.45);
+  background: rgba(232, 82, 42, 0.06);
+}
+
+.mm-dash-tile span:last-child {
+  font-size: 1.25rem;
+}
+
+.mm-stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.mm-stat-pill {
+  padding: 0.6rem 1rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  font-size: 0.88rem;
+}
+
+.mm-stat-pill strong {
+  display: block;
+  color: var(--accent);
+  font-size: 1.1rem;
+  font-family: 'Syne', sans-serif;
+}
+
+.mm-progress {
+  height: 8px;
+  border-radius: 100px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+  margin-top: 0.35rem;
+}
+
+.mm-progress__bar {
+  height: 100%;
+  border-radius: 100px;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+}
+
+.mm-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.mm-chip {
+  padding: 0.35rem 0.65rem;
+  border-radius: 100px;
+  font-size: 0.82rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border2);
+  color: var(--text);
+}
+
+.mm-chip--on {
+  border-color: rgba(232, 82, 42, 0.5);
+  background: rgba(232, 82, 42, 0.12);
+}
+
+.mm-pill-select {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.mm-pill-select button {
+  font: inherit;
+  cursor: default;
+  padding: 0.4rem 0.85rem;
+  border-radius: 100px;
+  border: 1px solid var(--border2);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+}
+
+.mm-pill-select button.mm-pill-select--active {
+  border-color: var(--accent);
+  color: var(--text);
+  background: rgba(232, 82, 42, 0.12);
+}
+
+.mm-list-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.mm-list-row:last-child {
+  border-bottom: none;
+}
+
+.mm-list-row h4 {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.mm-list-row p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.mm-macro-inline {
+  font-size: 0.78rem;
+  color: var(--muted2);
+}
+
+.mm-btn-ghost {
+  font: inherit;
+  cursor: pointer;
+  padding: 0.45rem 0.9rem;
+  border-radius: 100px;
+  border: 1px solid var(--border2);
+  background: transparent;
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.mm-btn-ghost:hover {
+  border-color: var(--accent);
+  color: var(--accent2);
+}
+
+.mm-btn-danger {
+  font: inherit;
+  cursor: pointer;
+  padding: 0.5rem 1rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 80, 80, 0.4);
+  background: rgba(255, 80, 80, 0.08);
+  color: #ff8a8a;
+  font-size: 0.85rem;
+}
+
+.mm-onboarding-steps {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.mm-onboarding-step {
+  flex: 1;
+  text-align: center;
+  padding: 0.5rem;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.mm-onboarding-step--done {
+  border-color: rgba(46, 194, 126, 0.4);
+  color: var(--accent3);
+}
+
+.mm-onboarding-step--current {
+  border-color: var(--accent);
+  color: var(--text);
+  background: rgba(232, 82, 42, 0.1);
+}
+
+.mm-disclaimer {
+  font-size: 0.78rem;
+  color: var(--muted2);
+  line-height: 1.45;
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+}

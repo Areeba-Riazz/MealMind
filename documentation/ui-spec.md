@@ -1,6 +1,14 @@
 # MealMind — UI Specification
 
-> This document catalogues every existing screen and component, and specifies all **new UI** needed to complete Phase 3 and prepare for Phase 4. Use it as the single source of truth for design and implementation work.
+> This document catalogues every existing screen and component, specifies **new UI** for MVP and growth, and defines **feature boundaries** so layout, pages, and chrome can be built before backend wiring. Use it as the single source of truth for design and implementation work.
+
+---
+
+## How to use this doc (feature splits)
+
+- **Surfaces** = route + layout ownership. Teams can own a surface (e.g. “Library” = `/saved` + `/food-links`) and ship UI with mock data until APIs exist.
+- **Shell** = shared chrome: navbar, optional secondary nav, floating assistant, toasts. Changes here affect every app page—coordinate centrally.
+- **Status tags:** Live = implemented | Scaffold = route + layout + empty state | Planned = specified only
 
 ---
 
@@ -34,401 +42,486 @@
 - `.input-group` — labelled form field wrapper
 - `.animate-fade-in` — 0.6 s fade-up entrance
 
+### Shared UI primitives to add (design-system layer)
+
+Build these once; reuse on every surface.
+
+| Primitive | Purpose |
+|---|---|
+| `PageHeader` | Title + optional subtitle + breadcrumb / back |
+| `SectionCard` | Titled glass block with consistent padding |
+| `EmptyState` | Illustration/icon + title + body + primary CTA |
+| `ConfirmDialog` | Destructive actions (delete account, remove saved item) |
+| `Toast` / inline alert | Success / error feedback |
+| `Tabs` or `SegmentedControl` | Profile sub-areas, settings |
+| `TagInput` or multi-select chips | Allergies, diets, cuisines |
+| `Skeleton` variants | List rows, cards, recipe block |
+
 ---
 
-## Existing Screens
+## UI architecture & routes
 
-### 1. Landing Page — `/`
+### Layouts
+
+| Layout | Routes | Notes |
+|---|---|---|
+| **Marketing** | `/` | No app navbar; landing-only nav |
+| **App shell** | `/dashboard`, `/demo`, `/cravings`, `/profile`, `/preferences`, `/dietary`, `/saved`, `/food-links`, `/onboarding` | Shared `Navbar` + main content area; chat FAB optional |
+| **Auth** | `/login`, `/signup` | Centered forms; minimal chrome |
+
+**Future:** Nested `profile/*` under one parent route with `<Outlet />` if sub-pages grow; until then, flat routes are fine.
+
+### Information architecture (authenticated)
+
+```
+Dashboard (hub)
+├── Try AI → /demo
+├── Cravings → /cravings
+├── Saved recipes → /saved
+├── Saved food links → /food-links
+├── Preferences → /preferences
+├── Dietary & allergies → /dietary
+└── Account / profile → /profile
+```
+
+Assistant (chat) is **global** in app shell: floating action button (FAB), opens panel/drawer; does not own a full-page route initially.
+
+---
+
+## Screen catalog
+
+### 1. Landing Page — `/` — Live (DONE)
 
 **File:** `frontend/src/pages/LandingPage.tsx`
 
-Full marketing site. Sections:
-- Hero (headline, sub-copy, two CTAs, scrolling ticker)
-- Features grid (`.feat-card` with custom `--c` colour token)
-- Local cuisine / desi angle
-- How It Works (3-step process)
-- Testimonials / reviews carousel (drag-to-scroll)
-- Pricing cards (Free / Pro / Family)
-- FAQ accordion
-- Final CTA banner
+Full marketing site: hero, features, local cuisine, how it works, testimonials, pricing cards, FAQ, CTA.
 
-All "Try AI" CTAs now route to **`/demo`**.
+**Note:** Roadmap treats monetisation as post-MVP; pricing UI may stay as **marketing placeholder** or be simplified later—does not block app shell work.
+
+All "Try AI" CTAs route to **`/demo`**.
 
 ---
 
-### 2. Demo (AI Chef) — `/demo`
+### 2. Dashboard (app home) — `/dashboard` — Scaffold
+
+**Purpose:** Single hub after login so users are not dropped straight into `/demo`. Divides features clearly: cook, discover, library, settings.
+
+**Suggested sections (all can use placeholder counts):**
+
+| Block | Content |
+|---|---|
+| Welcome | Display name + short line (“What’s cooking?”) |
+| Quick actions | Cards or large buttons: Try AI, Local search, Saved recipes, Saved links |
+| At a glance | Placeholder strips: “No meals planned” / “Diet profile complete” (wire later) |
+| Footer link | Link to `/profile` or `/preferences` for incomplete profile |
+
+**Layout:** `glass-container` with a responsive grid of `.glass-card` tiles; mobile stacks vertically.
+
+**Auth:** Protected route (same as `/demo`).
+
+---
+
+### 3. Demo (AI Chef) — `/demo` — Live (DONE)
 
 **File:** `frontend/src/pages/DemoPage.tsx`
 
-Authenticated users can input:
-- Ingredients (required textarea)
-- Budget constraint (optional)
-- Max cooking time (optional)
-- Dietary goal / mood (optional)
+Ingredients, budget, time, dietary goal/mood; recipe output with steps. Navbar via `AppLayout`.
 
-Demo-fill buttons: "Fill PKR Demo" and "Desi Empty Fridge Demo".
-
-Output: recipe name + numbered step-by-step instructions, with fallback creative pivot banner.
-
-**Navbar:** provided by `AppLayout` in `App.tsx` (shared `Navbar` component).
+**Enhancements (see also Macro & recipe actions):** macro badges row, Save recipe CTA (stub → `/saved`), optional “Apply profile defaults” toggle (reads preferences when backend exists).
 
 ---
 
-### 3. Local Restaurant Search — `/cravings`
+### 4. Local Restaurant Search — `/cravings` — Live (mock data) (DONE)
 
 **File:** `frontend/src/pages/Cravings.tsx`
 
-Natural-language craving search → mock list of restaurant results with:
-- Restaurant name, item name, rating
-- Distance & price
-- "Order Now" button (deep-links to Foodpanda / WhatsApp)
-
-Currently returns hard-coded mock data. Real integration is a Phase 3 to-do.
+Craving search → results with order actions. **Saved food links** are a separate library page (`/food-links`) where users revisit bookmarked outlets/items (UI can start with empty state + “Save from Cravings” copy).
 
 ---
 
-### 4. Login — `/login`
+### 5. Saved recipes — `/saved` — Scaffold
 
-**File:** `frontend/src/pages/Login.tsx`
+**Purpose:** Library of recipes the user saved from the AI flow (and eventually manual add).
 
-Email + password sign-in via Firebase. Redirects to `/demo` on success.
-Link to Signup page.
+**UI:**
 
----
+- Toolbar: search (client-side later), sort (date, name), filter chips (tags—stub)
+- Grid or list of `.glass-card` rows: title, date saved, macro summary placeholder, actions: Open / Cook again (pre-fill `/demo`) / Remove
+- `EmptyState`: “Save a recipe from Try AI” → CTA to `/demo`
 
-### 5. Signup — `/signup`
-
-**File:** `frontend/src/pages/Signup.tsx`
-
-Email + password account creation via Firebase. Redirects to `/demo` on success.
-Link to Login page.
+**Auth:** Protected.
 
 ---
 
-### 6. Navbar — shared component
+### 6. Saved food links — `/food-links` — Scaffold
 
-**File:** `frontend/src/components/Navbar.tsx`
+**Purpose:** Bookmarks for restaurant/order deep links (from Cravings or pasted). Distinct from saved *recipes*.
 
-Fixed top bar. Adapts based on route:
-- On `/`: shows landing-page section anchors (Features, Local Cuisine, How It Works, Pricing, Reviews)
-- On all other routes: shows app links (Home, Try AI `/demo`, Local Search `/cravings`)
+**UI:**
 
-Auth state:
-- Unauthenticated: "Log In" ghost button + "Try Free" accent button
-- Authenticated: avatar initial + username + Logout button
+- List rows: restaurant name, item label, area, “Open link” primary, overflow: Edit label / Remove
+- `EmptyState`: “No saved links yet” + CTA to `/cravings`
+- Optional: “Add link manually” modal (URL + title fields)—stub OK
 
-Responsive: collapses to hamburger on ≤768 px with a full-screen mobile drawer.
+**Auth:** Protected.
 
 ---
 
-## New UI Needed — Phase 3
+### 7. Preferences — `/preferences` — Scaffold
 
-### A. Onboarding Flow (post-signup)
+**Purpose:** Non-medical preference profile—cuisines, spice, cooking effort, default budget band, goals—aligned with roadmap “preferences” system.
 
-**Route:** `/onboarding` (or modal triggered after `/signup`)
-**Priority:** High
+**UI:**
 
-A one-time, multi-step wizard shown immediately after a user creates an account. Prevents raw entry into the demo without context.
+- Sections as `SectionCard`: Cuisine likes (chips), Spice level (segmented), Cooking skill (pills), Default budget range (slider or pills), Fitness / eating goal (pills)
+- Sticky or bottom **Save** bar (disabled until dirty—optional)
+- Mobile: single column; desktop: one column max-width for readability
 
-**Steps:**
-
-| Step | Fields |
-|---|---|
-| 1 — Dietary Profile | Checkboxes: Vegetarian, Vegan, Halal, Gluten-free, Dairy-free |
-| 2 — Budget Range | Slider or quick-pick: Under 300 PKR / 300–700 PKR / 700–1500 PKR / No limit |
-| 3 — Cooking Skill | Single-select pill: Beginner / Intermediate / Home Chef |
-| 4 — Fitness Goal | Pill: Weight loss / Muscle gain / Maintenance / Just eat well |
-
-**UI pattern:** Full-screen glass panel, step indicator dots at top, "Next" / "Skip" / "Back" navigation at bottom, progress stored in Firebase user profile document.
+**Data:** Local state + “Saved locally” stub until Firestore; structure should match `users/{uid}.preferences` in schema section.
 
 ---
 
-### B. User Profile & Settings — `/profile`
+### 8. Dietary & allergies — `/dietary` — Scaffold
 
-**Priority:** High
+**Purpose:** Allergies, intolerances, diets, and hard restrictions—clearly separated from “preferences” so filtering logic can attach later.
 
-Accessible via Navbar avatar click (currently triggers logout; needs a dropdown first — see C).
+**UI:**
+
+- **Allergies & intolerances:** multi-select chips + optional “Other” text
+- **Diets:** checkboxes or multi-select (Vegetarian, Vegan, Halal, Gluten-free, Keto, etc.)
+- Short **disclaimer** line: estimates only; not medical advice
+- Save bar; link from onboarding step 1 should land here or mirror fields
+
+**Auth:** Protected.
+
+---
+
+### 9. Profile & account — `/profile` — Scaffold
+
+**Purpose:** Identity, credentials, danger zone—not the full diet/prefs matrix (those live on `/preferences` and `/dietary`).
 
 **Sections:**
 
 | Section | Content |
 |---|---|
-| Account | Display name (editable), email (read-only), change password link |
-| Dietary Preferences | Same fields as onboarding — editable at any time |
-| Budget & Cooking | Budget range, skill level |
-| Saved Meals | List of saved recipes (see Phase 4 note) — placeholder "No saved meals yet" for now |
-| Danger Zone | Delete account button |
+| Account | Avatar initial / upload later, display name, email read-only |
+| Security | Change password, Google link status placeholder |
+| Shortcuts | Links to `/preferences`, `/dietary`, `/saved`, `/food-links` |
+| Danger zone | Delete account (confirm dialog) |
 
-**Layout:** Two-column on desktop (sidebar nav + content panel), single-column on mobile.
-
----
-
-### C. User Dropdown Menu (Navbar enhancement)
-
-**Priority:** High (blocks profile access)
-
-When a user is logged in, the avatar + username area should open a small dropdown on click instead of showing a Logout button inline.
-
-**Dropdown items:**
-- Profile & Preferences → `/profile`
-- My Saved Meals → `/profile#saved` (or `/saved`)
-- Logout
-
-**UI pattern:** Absolute-positioned `.glass-card` below the avatar, 180–200 px wide, subtle entrance animation, closes on outside click.
+**Layout:** Sidebar tabs on desktop (`PageHeader` + list nav); mobile: stacked sections with anchor links or accordion.
 
 ---
 
-### D. Macro & Calorie Display (DemoPage enhancement)
+### 10. Onboarding flow — `/onboarding` — Scaffold
 
-**Priority:** Medium
+**Route:** `/onboarding` (query `?step=` optional)
 
-After the AI returns a recipe, display a nutrition summary row beneath the recipe name.
+Shown once after signup (guard: if profile complete, redirect `/dashboard`). Multi-step wizard; steps should **mirror** fields on `/preferences` + `/dietary` so users can finish fast and refine later.
 
-**Fields to show:** Estimated calories, protein (g), carbs (g), fat (g).
-
-**UI pattern:** Four pill-shaped stat badges in a horizontal row:
-```
-🔥 480 kcal   💪 38 g protein   🌾 42 g carbs   🥑 12 g fat
-```
-Sourced from the AI response (the backend prompt needs to return a `macros` object alongside `recipeName` and `instructions`).
-
-**Backend change required:** Update `/api/recommend` response schema and Gemini prompt to include `macros: { calories, protein, carbs, fat }`.
-
----
-
-### E. Google Sign-In (Login & Signup enhancement)
-
-**Priority:** Medium
-
-Add a "Continue with Google" button above the email/password form on both `/login` and `/signup`.
-
-**UI pattern:** White pill button with Google logo SVG on the left, full width, with a subtle divider row ("— or —") between it and the email form. Uses `signInWithPopup(auth, new GoogleAuthProvider())` from Firebase.
-
----
-
-### F. Real Restaurant Data (Cravings enhancement)
-
-**Priority:** Medium
-
-Replace the hard-coded mock array in `Cravings.tsx` with a real API call.
-
-**Approach options (decide in sprint):**
-1. Backend endpoint `/api/cravings` that calls the Foodpanda public API or a curated database
-2. Backend returns Foodpanda deep-link URLs based on search term + city
-
-**New UI elements needed:**
-- City / area picker input field (e.g., "DHA Phase 4, Lahore") above the craving search
-- "No results found" empty state with a suggestion to try a broader search
-- Skeleton loader cards (3 placeholder cards while fetching) instead of the current text spinner
-
----
-
-### G. Mobile Responsiveness QA Pass (cross-cutting)
-
-**Priority:** Medium
-
-Audit all pages at 375 px (iPhone SE) and 390 px (iPhone 14):
-
-| Page | Known issues to fix |
+| Step | Focus |
 |---|---|
-| LandingPage | FAQ accordion text overflow; pricing cards stack needs gap tuning |
-| DemoPage | Demo-fill buttons wrap awkwardly on narrow screens |
-| Cravings | "Order Now" button pushed off card edge |
-| Login / Signup | Form padding too tight on narrow screens |
-| Navbar | Mobile drawer links need larger tap targets (min 48 px) |
+| 1 | Diets + allergies (summary; detail on `/dietary`) |
+| 2 | Budget + cooking skill |
+| 3 | Cuisines + goal (optional) |
+
+**UI:** Full-screen glass, step dots, Back / Next / Skip, final **Go to dashboard** CTA.
 
 ---
 
-## New UI Needed — Phase 4
+### 11. Login — `/login` — Live (DONE)
 
-*(Specified here for awareness; do not build until Phase 3 is complete.)*
+**File:** `frontend/src/pages/Login.tsx`
 
-### H. Saved Meals / Recipe History — `/saved`
-
-Grid of recipe cards the user has saved from the DemoPage. Each card shows: recipe name, date saved, macro summary, "Cook Again" button (pre-fills DemoPage), "Delete" icon.
-
-### I. Weekly Meal Plan — `/plan`
-
-A 7-column calendar grid (Mon–Sun). Each cell = a meal slot (Sehri / Breakfast / Lunch / Dinner for Ramadan mode). Drag-and-drop reordering. "Generate Week" button calls AI with dietary profile. Grocery list sidebar auto-populated.
-
-### J. Grocery List Export
-
-Slide-out panel or modal listing all ingredients across the week's plan. Toggle individual items. "Export PDF" and "Copy to Clipboard" buttons.
-
-### K. Ramadan Planner Mode
-
-Toggle in Profile or Navbar. Replaces meal slots with Sehri / Iftar. Pre-populates AI prompts with Ramadan-appropriate context (light sehri, high-protein iftar, etc.).
+Email/password; redirect target should become **`/dashboard`** once it exists (today `/demo`).
 
 ---
 
-## Route Map (current + planned)
+### 12. Signup — `/signup` — Live (D0NE)
+
+**File:** `frontend/src/pages/Signup.tsx`
+
+Redirect after signup: **`/onboarding`** (then `/dashboard`), not raw `/demo`.
+
+---
+
+### 13. Navbar — shared — Live (needs enhancement)
+
+**File:** `frontend/src/components/Navbar.tsx`
+
+**App links (authenticated app shell):** Dashboard, Try AI, Cravings, Saved, Food links, Preferences (or grouped under “Settings” dropdown).
+
+**Auth:** User dropdown (see below)—not logout-only.
+
+---
+
+### 14. User dropdown (navbar) — Scaffold
+
+**Component:** `UserDropdown.tsx`
+
+On avatar click: Profile, Preferences, Dietary & allergies, Saved recipes, Saved food links, Logout. Closes on outside click; `.glass-card`; min tap targets 44–48px.
+
+---
+
+### 15. Chat assistant (FAB) — Scaffold
+
+**Components:** `ChatAssistantFab.tsx` + `ChatAssistantPanel.tsx` (or drawer)
+
+- Fixed **bottom-right** FAB (accent or secondary surface); icon: message / sparkles
+- Opens **right-side drawer** or bottom sheet on mobile with: header (“MealMind Assistant”), scrollable message list (placeholder bubbles), text input, send disabled or echo stub
+- Z-index above page; respects safe area on notched phones
+- Does not replace `/demo`—quick Q&A / tips only (backend later)
+
+**Scope:** MVP = UI shell + stub replies; no model integration required to ship layout.
+
+---
+
+### 16. Macro & calorie display — Demo enhancement
+
+Four stat pills under recipe title (calories, protein, carbs, fat). Requires backend `macros` object when wired.
+
+---
+
+### 17. Google Sign-In — Login & Signup enhancement
+
+Continue with Google button + divider; same pattern as existing spec.
+
+---
+
+### 18. Cravings enhancements — Real data (when ready)
+
+City/area field, skeleton cards, empty state. Deep links for ordering—not push notifications.
+
+---
+
+### 19. Mobile responsiveness — Cross-cutting
+
+Audit: Dashboard, Profile, Preferences, Dietary, Saved, Food links, FAB drawer, Navbar drawer (375 / 390 widths).
+
+---
+
+## Phase 4+ UI (deferred)
+
+Awareness only—do not block MVP shell.
+
+| Item | Route / surface | Notes |
+|---|---|---|
+| Weekly meal plan | `/plan` | Calendar grid |
+| Grocery export | panel/modal | From plan |
+| Ramadan mode | toggle / planner | Slot labels |
+| Urdu UI | global | Locale layer |
+
+---
+
+## Route map
 
 | Route | Page | Status |
 |---|---|---|
-| `/` | Landing Page | ✅ Live |
-| `/login` | Login | ✅ Live |
-| `/signup` | Signup | ✅ Live |
-| `/demo` | AI Chef Demo | ✅ Live |
-| `/cravings` | Local Restaurant Search | ✅ Live (mock data) |
-| `/onboarding` | Onboarding Wizard | 🔲 To build |
-| `/profile` | User Profile & Settings | 🔲 To build |
-| `/saved` | Saved Meals | 📋 Phase 4 |
-| `/plan` | Weekly Meal Plan | 📋 Phase 4 |
+| `/` | Landing | Live |
+| `/login` | Login | Live |
+| `/signup` | Signup | Live |
+| `/dashboard` | App hub | Scaffold |
+| `/demo` | AI Chef | Live |
+| `/cravings` | Local search | Live (mock) |
+| `/onboarding` | Post-signup wizard | Scaffold |
+| `/profile` | Account & shortcuts | Scaffold |
+| `/preferences` | Cuisines, spice, budget, goals | Scaffold |
+| `/dietary` | Allergies & diets | Scaffold |
+| `/saved` | Saved recipes | Scaffold |
+| `/food-links` | Saved restaurant/order links | Scaffold |
+
+**Redirect policy (target):** Login/signup success → `/dashboard` or `/onboarding` if incomplete. Logout → `/`.
 
 ---
 
-## Component Checklist
+## Component checklist
 
 | Component | File | Status |
 |---|---|---|
-| `Navbar` | `components/Navbar.tsx` | ✅ Live |
-| `AuthProvider` | `context/AuthContext.tsx` | ✅ Live |
-| `OnboardingWizard` | `components/OnboardingWizard.tsx` | 🔲 To build |
-| `UserDropdown` | `components/UserDropdown.tsx` | 🔲 To build |
-| `MacroBadges` | `components/MacroBadges.tsx` | 🔲 To build |
-| `SkeletonCard` | `components/SkeletonCard.tsx` | 🔲 To build |
-| `GoogleSignInButton` | `components/GoogleSignInButton.tsx` | 🔲 To build |
+| `Navbar` | `components/Navbar.tsx` | Live — extend links + dropdown |
+| `UserDropdown` | `components/UserDropdown.tsx` | Scaffold |
+| `ChatAssistantFab` | `components/ChatAssistantFab.tsx` | Scaffold |
+| `ChatAssistantPanel` | `components/ChatAssistantPanel.tsx` | Scaffold |
+| `PageHeader` | `components/PageHeader.tsx` | Scaffold |
+| `SectionCard` | `components/SectionCard.tsx` | Scaffold |
+| `EmptyState` | `components/EmptyState.tsx` | Scaffold |
+| `OnboardingWizard` | `pages/OnboardingPage.tsx` or `components/OnboardingWizard.tsx` | Scaffold |
+| `MacroBadges` | `components/MacroBadges.tsx` | Scaffold |
+| `SkeletonCard` | `components/SkeletonCard.tsx` | Scaffold |
+| `GoogleSignInButton` | `components/GoogleSignInButton.tsx` | Scaffold |
+| `ConfirmDialog` | `components/ConfirmDialog.tsx` | Scaffold |
+
+---
+
+## Master UI implementation checklist
+
+Use this as the **complete ordered backlog** for UI work. Check items off in PRs; sub-bullets can be parallelised by surface.
+
+### 1. Shell & navigation
+
+- [ ] Introduce **`/dashboard`** route and placeholder hub content
+- [ ] Update **post-auth redirects**: signup → `/onboarding` (or `/dashboard` if skipping onboarding for now), login → `/dashboard`
+- [ ] Extend **`Navbar`** app links: Dashboard, Try AI, Cravings, Saved, Food links, Settings entry point
+- [ ] Implement **`UserDropdown`**: Profile, Preferences, Dietary, Saved recipes, Food links, Logout
+- [ ] Replace inline logout-only pattern with dropdown for authenticated users
+- [ ] Optional: **active link** styles for current route
+- [ ] Ensure **mobile drawer** includes all new routes with 48px tap targets
+
+### 2. Dashboard (`/dashboard`)
+
+- [ ] Page layout: `PageHeader` + welcome line
+- [ ] Quick action **tiles** to `/demo`, `/cravings`, `/saved`, `/food-links`
+- [ ] Secondary row: shortcuts to `/preferences`, `/dietary`, `/profile`
+- [ ] Empty / placeholder widgets for future “plan” or stats (non-blocking)
+- [ ] `EmptyState` or banner if profile incomplete (copy only; logic later)
+
+### 3. Profile (`/profile`)
+
+- [ ] Account section: display name, email read-only
+- [ ] Security placeholders: change password, “Connected with Google”
+- [ ] **Shortcuts** list to preferences, dietary, saved, food links
+- [ ] Danger zone: delete account UI + `ConfirmDialog` (handler stub)
+- [ ] Responsive: stacked mobile, optional side nav desktop
+
+### 4. Preferences (`/preferences`)
+
+- [ ] `SectionCard` blocks: cuisines, spice, skill, budget defaults, goals
+- [ ] Chip / segmented controls using design tokens
+- [ ] Save bar or auto-save placeholder (local state OK)
+- [ ] Link to `/dietary` for restrictions
+
+### 5. Dietary & allergies (`/dietary`)
+
+- [ ] Allergies / intolerances chip UI + optional free text
+- [ ] Diet checkboxes
+- [ ] Short non-medical disclaimer
+- [ ] Save CTA; mirror critical fields from onboarding
+
+### 6. Onboarding (`/onboarding`)
+
+- [ ] Multi-step wizard shell (steps, progress dots)
+- [ ] Fields aligned with preferences + dietary pages
+- [ ] Final CTA to `/dashboard`; **Skip** still lands on `/dashboard` with toast “You can finish setup in Settings”
+- [ ] Route guard placeholder: “completed onboarding” flag (localStorage or profile doc later)
+
+### 7. Saved recipes (`/saved`)
+
+- [ ] List/grid layout with `EmptyState` → CTA `/demo`
+- [ ] Card actions: remove (confirm), “Cook again” (navigate to `/demo` with query stub)
+- [ ] Skeleton loading state for future fetch
+
+### 8. Saved food links (`/food-links`)
+
+- [ ] List UI for bookmarked links
+- [ ] `EmptyState` → `/cravings`
+- [ ] Optional “Add manually” modal (URL + label)—stub
+- [ ] Overflow menu: delete, copy link
+
+### 9. Demo page (`/demo`) UI polish
+
+- [ ] `MacroBadges` row (placeholder values if API missing)
+- [ ] **Save recipe** button (toast “Saved” / disabled until backend)
+- [ ] Optional toggle: “Use my profile defaults” (UI only)
+- [ ] Mobile: stack inputs; demo-fill buttons full width
+
+### 10. Cravings (`/cravings`) UI polish
+
+- [ ] City/area field (when wired)
+- [ ] Skeleton cards, empty state
+- [ ] **Save to food links** action on card (stub)
+
+### 11. Auth pages
+
+- [ ] `GoogleSignInButton` on login + signup
+- [ ] Divider “or continue with email”
+- [ ] Adjust padding on narrow screens (QA)
+
+### 12. Chat assistant (FAB)
+
+- [ ] `ChatAssistantFab` fixed bottom-right (above safe area)
+- [ ] `ChatAssistantPanel`: drawer + header + message list + input
+- [ ] Open/close animation; focus trap optional; ESC closes
+- [ ] Stub send: echo or static message—no backend required
+
+### 13. Landing page (optional cleanup)
+
+- [ ] If product direction removes paid tiers from MVP, replace pricing block with simpler “Free during beta” or feature list (product decision)
+
+### 14. Cross-cutting QA
+
+- [ ] Keyboard: tab order on modals, dropdowns, FAB
+- [ ] Focus visible styles on buttons and inputs
+- [ ] 375px / 390px pass on all new pages
+- [ ] Loading/error toasts pattern (single approach)
 
 ---
 
 ## Full Feature Set (One‑Stop Meal Planning)
 
-This is the complete product vision: pantry → planning → cooking → tracking, all in one place.
-
-### Pantry & Inventory
-
-- Capture pantry items (name, quantity, unit)
-- Support common units + conversions (g/ml/pcs)
-- Categorise items (produce, dairy, spices, pantry staples)
-- Expiry dates + “use soon” surface area
-- Low-stock thresholds + “running out” surface area
-- Pantry clean-up: archive/consume/discard actions
-- Import options (later): barcode scan, receipt OCR, manual quick add
+Vision reference: pantry → planning → cooking → tracking. **MVP UI** above prioritises shell + profile + library surfaces; pantry and full planner remain deferred per roadmap.
 
 ### Dietary Rules & Preferences
 
-- Dietary style: halal/veg/vegan/pescatarian
+- Dietary style: halal / veg / vegan / pescatarian
 - Allergens: nuts, dairy, gluten, eggs, soy (avoid lists)
 - Disliked ingredients + cuisine preferences
 - Spice tolerance and sweetness preference
-- Household profiles (later): different diets per person
-
-### Meal Planning (Daily → Weekly)
-
-- Daily plan view (Today)
-- Weekly plan calendar (Mon–Sun)
-- Meal slots: Breakfast / Lunch / Dinner / Snack (configurable)
-- Auto-generate plan from goals + constraints + pantry
-- “Swap” meal suggestion for any slot
-- Serving scaling (1–6+)
-- Schedule constraints (busy day → fast meals)
-
-### Grocery List & Shopping
-
-- Grocery list generated from plan (“missing ingredients”)
-- Pantry subtraction (only buy what you don’t have)
-- Mark items purchased / unavailable
-- Optional budget mode: estimate total cost
-- Export: copy-to-clipboard + PDF (later)
-- Store/deal price comparison (later; requires partnerships/data)
-
-### Recipes & Cooking Mode
-
-- Recipe cards with ingredients + steps
-- Cooking mode: step-by-step, keep-screen-on, timers
-- Substitutions: suggest replacements using pantry
-- Leftovers mode: “cook with what’s expiring”
-- Save recipe, rate it, and see history
-
-### Nutrition & Goals
-
-- Macro targets (calories/protein/carbs/fat)
-- Macro display per recipe + per day/week summary
-- Dietary adherence score (simple, not medical)
-- “AI nutritionist chat” is deferred due to regulatory risk (keep as Phase 5)
+- Household profiles (deferred; not MVP)
 
 ### Ordering / Eating Out (Cravings)
 
-- Local search results powered by real data
-- Deep links to Foodpanda / WhatsApp / call to order
-- Filters: distance, price, rating, halal, delivery time
+- Local search results; deep links to order
+- Filters: distance, price, rating, halal, delivery time (when data exists)
 
 ### Accounts, Privacy, and Reliability
 
-- Email/password auth (done) + Google sign-in (planned)
-- User profile & preferences (planned)
-- Data backups / export (later)
-- Offline‑friendly pantry edits (later)
-- Audit trail (later): who changed household pantry
+- Email/password (done) + Google sign-in (planned)
+- Profile & preferences split across `/profile`, `/preferences`, `/dietary`
+- Data export / offline (later)
 
 ---
 
-## Implementation Plan (Phased)
+## Implementation Plan (phased — product, not only UI)
 
-This plan is structured to ship a real pantry + planning MVP quickly, while keeping the AI pieces safe and maintainable.
+Structured to ship UI surfaces early; wire Firestore and AI as follow-ons.
 
-### Phase 3A — Data Layer + Pantry MVP (foundation)
+### Phase UI-1 — App shell + routes
 
-**Goal:** Introduce a real database and make pantry a first-class feature.
+- Add routes: `/dashboard`, `/profile`, `/preferences`, `/dietary`, `/saved`, `/food-links`, `/onboarding`
+- Navbar + user dropdown + redirects
+- All pages: real layout + empty states + local state stubs
 
-- Add Firestore (recommended) and define collections (see schema below)
-- Create a `/pantry` page:
-  - List pantry items, search, filters (expiring soon, low stock)
-  - Add/edit/delete pantry item modal
-- Add a minimal `/profile` page:
-  - Dietary preferences + allergens + cuisine likes/dislikes
-- Add route protection (if not already): require auth for `/pantry`, `/profile`, `/demo`, `/cravings`
+### Phase UI-2 — Onboarding + profile data
 
-### Phase 3B — Plan Builder + Grocery List (core value loop)
+- Persist preferences + dietary fields to Firestore (`users/{uid}`)
+- Onboarding completion flag
+- Demo: optional “apply profile” to pre-fill prompts
 
-**Goal:** Pantry → plan → grocery list is the core “one-stop” loop.
+### Phase UI-3 — Saved content + demo actions
 
-- Create `/plan` (MVP version):
-  - Simple weekly view (list or calendar)
-  - Add meal slot (manual) using recipe picker
-- Create `/grocery`:
-  - Generate “missing items” from plan vs pantry
-  - Checkbox to mark bought
-- Add “Cook Again” / “Save recipe” on Demo output (writes to DB)
+- Save recipe from `/demo` → `users/{uid}/recipes`
+- Save Cravings link → `users/{uid}/foodLinks` (collection name as decided)
+- Macro badges from API
 
-### Phase 3C — AI Integration with Structured Outputs
+### Phase UI-4 — Cravings real data + polish
 
-**Goal:** Make AI outputs reliable enough to store and reuse.
+- Backend `/api/cravings` + skeletons + mobile QA
 
-- Update backend `/api/recommend`:
-  - Return structured JSON: recipe name, steps, ingredients (structured), macros (estimates), tags
-- Update Demo UI:
-  - Show macro badges (D)
-  - “Save recipe” button
-  - “Use pantry” button to prefill ingredients from user pantry items
+### Phase 4+ product (post-MVP)
 
-### Phase 3D — Cravings real data + QA
-
-**Goal:** Replace mock results and harden the UI for mobile.
-
-- Add backend `/api/cravings` (integrate real provider or curated dataset)
-- Add city/area picker + skeleton loaders + empty states (F)
-- Mobile responsiveness QA pass (G)
-
-### Phase 4 — Retention & Growth (after validation)
-
-- Saved meals history upgrades (`/saved`)
-- Weekly auto meal plan generation (deferred but high value)
-- Ramadan mode (planner slots Sehri/Iftar)
-- WhatsApp reminders / push notifications
-- Family mode / household sharing (multi-user)
+- Weekly plan, grocery export, Ramadan mode, Urdu UI — see roadmap
 
 ---
 
 ## Minimal Database Schema Proposal (MVP)
 
-Because you already use **Firebase Auth**, the simplest full-stack path is **Firestore** for app data. Below is a minimal schema that supports pantry + meal plans + saved recipes.
+Because you already use **Firebase Auth**, the simplest full-stack path is **Firestore** for app data.
 
 ### Collections (Firestore)
 
 #### `users/{uid}`
 
-Stores profile + preference data.
+Profile + preference data (aligns with `/preferences` + `/dietary` UI).
 
 ```json
 {
@@ -436,6 +529,7 @@ Stores profile + preference data.
   "email": "hafsa@example.com",
   "createdAt": "timestamp",
   "updatedAt": "timestamp",
+  "onboardingCompletedAt": "timestamp|null",
   "preferences": {
     "dietStyle": ["halal"],
     "allergens": ["nuts"],
@@ -449,36 +543,16 @@ Stores profile + preference data.
 }
 ```
 
-#### `users/{uid}/pantryItems/{pantryItemId}`
-
-Inventory items with optional expiry and low-stock.
-
-```json
-{
-  "name": "Chicken breast",
-  "normalizedName": "chicken breast",
-  "quantity": 1.0,
-  "unit": "kg",
-  "category": "protein",
-  "expiryDate": "timestamp|null",
-  "lowStockThreshold": 0.5,
-  "notes": "freeze half",
-  "createdAt": "timestamp",
-  "updatedAt": "timestamp"
-}
-```
-
 #### `users/{uid}/recipes/{recipeId}`
 
-Saved recipes (from AI or manual). Keep the saved copy immutable to preserve history.
+Saved recipes (from AI or manual).
 
 ```json
 {
   "source": "ai",
   "title": "Spicy Chicken Rice Bowl",
   "ingredients": [
-    { "name": "Chicken breast", "quantity": 250, "unit": "g" },
-    { "name": "Rice", "quantity": 1, "unit": "cup" }
+    { "name": "Chicken breast", "quantity": 250, "unit": "g" }
   ],
   "steps": ["..."],
   "macros": { "calories": 480, "protein": 38, "carbs": 42, "fat": 12 },
@@ -489,75 +563,38 @@ Saved recipes (from AI or manual). Keep the saved copy immutable to preserve his
 }
 ```
 
-#### `users/{uid}/mealPlans/{planId}`
+#### `users/{uid}/foodLinks/{foodLinkId}`
 
-One document per week (or per date range).
-
-```json
-{
-  "weekStart": "2026-04-06",
-  "timezone": "Asia/Karachi",
-  "createdAt": "timestamp",
-  "updatedAt": "timestamp"
-}
-```
-
-#### `users/{uid}/mealPlans/{planId}/slots/{slotId}`
-
-Each slot is a planned meal on a day/time.
+Saved restaurant / order links (Cravings bookmarks).
 
 ```json
 {
-  "date": "2026-04-06",
-  "mealType": "dinner",
-  "recipeRef": "users/{uid}/recipes/{recipeId}",
-  "servings": 2,
-  "notes": "make extra for lunch",
-  "createdAt": "timestamp",
-  "updatedAt": "timestamp"
+  "label": "Chicken handi — Cafe X",
+  "url": "https://...",
+  "source": "cravings|manual",
+  "area": "DHA Phase 4",
+  "createdAt": "timestamp"
 }
 ```
 
-#### `users/{uid}/groceryLists/{listId}`
+#### `users/{uid}/pantryItems/{pantryItemId}` *(deferred feature)*
 
-Generated list (typically from a `mealPlan`), with item status.
+#### `users/{uid}/mealPlans/{planId}` *(deferred feature)*
 
-```json
-{
-  "sourcePlanRef": "users/{uid}/mealPlans/{planId}",
-  "createdAt": "timestamp",
-  "updatedAt": "timestamp"
-}
-```
-
-#### `users/{uid}/groceryLists/{listId}/items/{itemId}`
-
-```json
-{
-  "name": "Yogurt",
-  "normalizedName": "yogurt",
-  "quantity": 1,
-  "unit": "cup",
-  "status": "needed",
-  "estimatedPricePkr": 0,
-  "createdAt": "timestamp",
-  "updatedAt": "timestamp"
-}
-```
+---
 
 ### Minimal Indexing / Query Notes
 
-- Query pantry:
-  - order by `expiryDate` (nulls last) for “expiring soon”
-  - filter by `category`
-- Grocery list:
-  - filter by `status` in `needed|bought`
-- “Normalized” fields:
-  - keep `normalizedName` for case-insensitive search and matching pantry subtraction
+- Saved recipes: order by `createdAt` desc
+- Food links: order by `createdAt` desc
 
 ### Why Firestore (for MVP)
 
-- Works naturally with Firebase Auth (`uid` scoping)
-- Fast to implement with the current stack
-- Real-time updates (pantry edits reflected immediately)
+- Natural fit with Firebase Auth (`uid` scoping)
+- Real-time updates for library pages
 
+---
+
+## Document history
+
+- **2026:** Expanded for full app shell, dashboard, preferences/dietary split, saved recipes & food links, chat FAB, master checklist; aligned MVP scope with roadmap (features over monetisation).

@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
@@ -6,8 +6,11 @@ import { app } from '../lib/firebase';
 
 const floatingFoods = ['🍛', '🥘', '🫓', '🍖', '🧆', '🥗', '🍳', '🌶️', '🫚', '🍚', '🥙', '🍜', '🥑', '🍱', '🌮', '🧅', '🫛', '🥦', '🍣', '☕', '🧁', '🍰', '🫖', '🍩'];
 
+type LocationState = { from?: { pathname: string } };
+
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +28,8 @@ export default function Login() {
     try {
       const auth = getAuth(app!);
       await signInWithEmailAndPassword(auth, email, password);
-      navigate('/demo');
+      const from = (location.state as LocationState | null)?.from?.pathname ?? '/dashboard';
+      navigate(from, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed. Please try again.');
     } finally {
