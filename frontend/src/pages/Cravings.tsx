@@ -56,7 +56,7 @@ export default function Cravings() {
   };
 
   return (
-    <main style={{ padding: '6rem 2rem 4rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+    <main style={{ padding: '1rem 2rem 4rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <div className="glass-container animate-fade-in" style={{ maxWidth: '700px' }}>
         <h1 style={{ textAlign: 'center', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
           <span>🛵</span> Smart Local Search

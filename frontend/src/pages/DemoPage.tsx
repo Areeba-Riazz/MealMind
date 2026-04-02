@@ -87,7 +87,7 @@ export default function DemoPage() {
   };
 
   return (
-    <main style={{ padding: '6rem 2rem 4rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+    <main style={{ padding: '1rem 2rem 4rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <div className="glass-container animate-fade-in" style={{ maxWidth: '700px' }}>
         <h1 style={{ textAlign: 'center', marginBottom: '0.5rem' }}>AI Chef Dashboard</h1>
         <p style={{ color: 'var(--text-muted)', textAlign: 'center', marginBottom: '2.5rem', fontSize: '1.1rem' }}>

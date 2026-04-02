@@ -42,7 +42,7 @@ Fridge-first cooking — the primary use case.
 - [x] Dietary goal / mood input
 - [x] Dashboard UI with loading states + demo fill buttons
 - [x] Fallback / creative pivot response handling
-- [x] Step-by-step instruction rendering
+- [ ] Step-by-step instruction rendering
 
 ---
 
@@ -52,8 +52,8 @@ Order-in feature, public-facing pages, and launch readiness.
 
 - [x] Landing page — full marketing site
 - [x] Login / Signup pages
-- [x] Smart Local Search (Cravings) — mock restaurant results
-- [x] Shared Navbar component across all pages
+- [ ] Smart Local Search (Cravings) — mock restaurant results
+- [ ] Shared Navbar component across all pages
 - [ ] Real restaurant data integration (Foodpanda / WhatsApp deep links for ordering)
 - [ ] Post-signup profile system — structured capture and storage of user context for recommendations:
   - [ ] Preferences (cuisines, spice level, cooking effort, budget defaults, etc.)
