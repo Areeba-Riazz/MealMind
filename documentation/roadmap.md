@@ -42,28 +42,35 @@ Fridge-first cooking — the primary use case.
 - [x] Dietary goal / mood input
 - [x] Dashboard UI with loading states + demo fill buttons
 - [x] Fallback / creative pivot response handling
-- [ ] Step-by-step instruction rendering
+- [x] Step-by-step instruction rendering (numbered steps with accent badges)
 
 ---
 
 ## Phase 3 — MVP Launch `Q2 2025` 🟡 In Progress
 
-Order-in feature, public-facing pages, and launch readiness.
+Order-in feature, public-facing pages, launch readiness, and app shell.
 
 - [x] Landing page — full marketing site
-- [x] Login / Signup pages
-- [ ] Smart Local Search (Cravings) — mock restaurant results
-- [ ] Shared Navbar component across all pages
-- [ ] Real restaurant data integration (Foodpanda / WhatsApp deep links for ordering)
-- [ ] Post-signup profile system — structured capture and storage of user context for recommendations:
-  - [ ] Preferences (cuisines, spice level, cooking effort, budget defaults, etc.)
-  - [ ] Allergies and intolerances (with safe filtering in recipe output)
-  - [ ] Diets and restrictions (vegetarian, halal, keto, etc.)
-  - [ ] Editable profile / settings so preferences stay in sync with the AI and dashboard
-- [ ] Onboarding flow after first login (guided pass through the profile system above)
-- [ ] Macro & calorie display in recipe output
+- [x] Login / Signup pages (redirect → `/dashboard` / `/onboarding`)
+- [x] Smart Local Search (Cravings) — mock restaurant results, quick chips, result cards
+- [x] Shared Sidebar navigation with emoji icons, active states, user card
+- [x] App shell layout — sticky topbar + scrollable content area
+- [x] **Dashboard** — welcome hero, stat cards, quick-action grid
+- [x] **Unified Profile page** (tabbed) — replaces separate `/preferences` + `/dietary` routes
+  - [x] Profile tab: account info, completion bar, security placeholders, danger zone
+  - [x] Preferences tab: interactive cuisine chips, spice/budget/skill/goal pill selectors
+  - [x] Diet & Allergies tab: allergen + diet interactive chips, disclaimer
+- [x] **AI Chef (Demo)** — redesigned form + numbered step results + error state
+- [x] **Cravings** — quick-pick chips, loading spinner, redesigned result cards
+- [x] **Saved Recipes** — interactive card list, remove action, empty state
+- [x] **Food Links** — card list with platform tags + order buttons
+- [x] **Onboarding** — step indicator, skill pill selector, navigation
+- [ ] Real restaurant data integration (Foodpanda / WhatsApp deep links)
+- [ ] Firestore wiring — preferences, dietary, saved recipes, food links
+- [ ] Macro & calorie display in recipe output (MacroBadges component)
 - [ ] Google Sign-In (OAuth)
-- [ ] Mobile responsiveness QA pass
+- [ ] Mobile responsiveness QA pass (375px / 390px)
+- [ ] "Save recipe" action on Demo page → saved collection
 
 ---
 
