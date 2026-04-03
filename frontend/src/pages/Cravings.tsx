@@ -1,59 +1,73 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
+import { useGeolocation } from '../hooks/useGeolocation';
+import SkeletonCard from '../components/SkeletonCard';
 
 interface CravingResult {
-  id: number;
+  id: string;
   name: string;
-  item: string;
-  distance: string;
-  price: string;
-  rating: string;
-  link: string;
+  address: string;
+  distanceKm: number;
+  priceLevel: number;
+  rating: number;
+  orderLink: string;
 }
 
 export default function Cravings() {
   const [craving, setCraving] = useState('');
+  const [area, setArea] = useState('');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<CravingResult[] | null>(null);
+  const [emptyMessage, setEmptyMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSearch = (e: FormEvent) => {
+  const geo = useGeolocation();
+
+  const handleSearch = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setResults(null);
+    setEmptyMessage(null);
+    setError(null);
 
-    setTimeout(() => {
-      setResults([
-        {
-          id: 1,
-          name: 'Daily Deli Co.',
-          item: 'Smash Beef Burger',
-          distance: '1.2 km away (DHA Phase 4)',
-          price: '850 PKR',
-          rating: '4.8 ⭐️',
-          link: 'https://www.foodpanda.pk/restaurant/mock/daily-deli',
-        },
-        {
-          id: 2,
-          name: 'Johnny & Jugnu',
-          item: 'Wehshi Zinger Burger',
-          distance: '2.5 km away (Johar Town)',
-          price: '700 PKR',
-          rating: '4.7 ⭐️',
-          link: 'https://www.foodpanda.pk/restaurant/mock/johnny-jugnu',
-        },
-        {
-          id: 3,
-          name: 'Local Street Cafe',
-          item: 'Spicy Chicken Burger',
-          distance: '0.8 km away',
-          price: '550 PKR',
-          rating: '4.3 ⭐️',
-          link: 'https://wa.me/923000000000',
-        },
-      ]);
+    try {
+      const body: Record<string, unknown> = { query: craving };
+
+      if (geo.lat != null && geo.lng != null) {
+        body.lat = geo.lat;
+        body.lng = geo.lng;
+      } else if (area.trim()) {
+        body.area = area.trim();
+      }
+
+      const res = await fetch('/api/cravings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error ?? 'Something went wrong. Please try again.');
+        return;
+      }
+
+      if (data.results.length === 0) {
+        setEmptyMessage(data.message ?? 'No restaurants found. Try broadening your search or adjusting the price range.');
+        setResults([]);
+        return;
+      }
+
+      setResults(data.results);
+    } catch {
+      setError('Could not reach the server. Please check your connection and try again.');
+    } finally {
       setLoading(false);
-    }, 1500);
+    }
   };
+
+  const canSubmit = !loading && (geo.lat != null || geo.denied === false || area.trim() !== '');
 
   return (
     <main style={{ padding: '6rem 2rem 4rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -76,43 +90,95 @@ export default function Cravings() {
               style={{ fontSize: '1.1rem', padding: '1.2rem' }}
             />
           </div>
-          <button type="submit" className="btn-primary" disabled={loading} style={{ marginTop: '0.5rem' }}>
+
+          {/* Requirement 3.3 — show area input when geolocation is denied */}
+          {geo.denied && (
+            <div className="input-group" style={{ marginTop: '0.75rem' }}>
+              <input
+                type="text"
+                placeholder="Enter your city or area (e.g. DHA Phase 4, Lahore)"
+                value={area}
+                onChange={(e) => setArea(e.target.value)}
+                required
+                style={{ fontSize: '1rem', padding: '1rem' }}
+              />
+            </div>
+          )}
+
+          <button
+            type="submit"
+            className="btn-primary"
+            disabled={!canSubmit || (geo.denied && area.trim() === '')}
+            style={{ marginTop: '0.5rem' }}
+          >
             {loading ? 'Scanning local restaurants... 📍' : 'Find My Craving 🍔'}
           </button>
         </form>
 
-        {results && (
+        {/* Requirement 4.1 — skeleton loaders while in flight */}
+        {loading && (
+          <div style={{ marginTop: '3rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
+        )}
+
+        {/* Requirement 6.4 — error state */}
+        {error && !loading && (
+          <div style={{ marginTop: '2rem', padding: '1.2rem', borderRadius: '12px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', color: '#fca5a5', textAlign: 'center' }}>
+            ⚠️ {error}
+          </div>
+        )}
+
+        {/* Requirement 4.3 — empty state */}
+        {results !== null && results.length === 0 && !loading && (
+          <div style={{ marginTop: '2rem', padding: '1.5rem', borderRadius: '12px', background: 'rgba(255,255,255,0.04)', textAlign: 'center', color: 'var(--text-muted)' }}>
+            <p style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>🍽️</p>
+            <p>{emptyMessage}</p>
+          </div>
+        )}
+
+        {/* Requirement 4.2 — result cards */}
+        {results && results.length > 0 && !loading && (
           <div style={{ marginTop: '3rem' }}>
             <h3 style={{ marginBottom: '1.5rem', color: 'white' }}>Top Matches Near You</h3>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {results.map((res) => (
-                <div key={res.id} className="glass-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.5rem', paddingRight: '1rem' }}>
+                <div
+                  key={res.id}
+                  className="glass-card"
+                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.5rem', paddingRight: '1rem' }}
+                >
                   <div>
-                    <h4 style={{ color: 'var(--accent)', fontSize: '1.2rem', marginBottom: '0.3rem' }}>{res.item}</h4>
-                    <p style={{ color: 'var(--text-main)', fontWeight: 'bold', marginBottom: '0.5rem' }}>{res.name} <span style={{ color: '#fbbf24', fontWeight: 'normal' }}>({res.rating})</span></p>
-                    <div style={{ display: 'flex', gap: '1rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                      <span>📍 {res.distance}</span>
-                      <span>💰 {res.price}</span>
+                    <h4 style={{ color: 'var(--accent)', fontSize: '1.2rem', marginBottom: '0.3rem' }}>{res.name}</h4>
+                    <p style={{ color: 'var(--text-main)', marginBottom: '0.5rem' }}>
+                      <span style={{ color: '#fbbf24' }}>{'⭐'.repeat(Math.round(res.rating))} {res.rating > 0 ? res.rating.toFixed(1) : ''}</span>
+                      {res.priceLevel > 0 && (
+                        <span style={{ color: 'var(--text-muted)', marginLeft: '0.5rem' }}>{'💰'.repeat(res.priceLevel)}</span>
+                      )}
+                    </p>
+                    {/* Requirement 5.2 / address replaces old mock distance string */}
+                    <div style={{ display: 'flex', gap: '1rem', color: 'var(--text-muted)', fontSize: '0.9rem', flexWrap: 'wrap' }}>
+                      <span>📍 {res.address}</span>
+                      {res.distanceKm > 0 && <span>🗺️ {res.distanceKm.toFixed(1)} km</span>}
                     </div>
                   </div>
+
+                  {/* Requirement 5.2 — orderLink used for "Order Now" button */}
                   <a
-                    href={res.link}
+                    href={res.orderLink}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn-primary"
-                    style={{ background: 'var(--accent)', padding: '0.8rem 1.2rem', width: 'auto', borderRadius: '10px', fontSize: '0.95rem', alignSelf: 'center', textDecoration: 'none', display: 'inline-block' }}
-                    title="This is a mock link for the MVP Demo"
+                    style={{ background: 'var(--accent)', padding: '0.8rem 1.2rem', width: 'auto', borderRadius: '10px', fontSize: '0.95rem', alignSelf: 'center', textDecoration: 'none', display: 'inline-block', flexShrink: 0, marginLeft: '1rem' }}
                   >
                     Order Now 🚀
                   </a>
                 </div>
               ))}
             </div>
-
-            <p style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-muted)', fontSize: '0.85rem', fontStyle: 'italic' }}>
-              *Note: For this MVP Demo phase, order links point to pre-selected mock restaurant pages on Foodpanda/WhatsApp.
-            </p>
           </div>
         )}
       </div>
