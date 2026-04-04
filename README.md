@@ -1,79 +1,109 @@
-# MealMind 🍊
+# MealMind
 
-An AI-powered meal recommendation assistant designed to eliminate decision fatigue daily. Developed as an MVP with a completely decoupled MVC architecture separating the React Frontend and Express Backend.
+AI-powered meal planning for Pakistani users: fridge-first recipes (PKR budgets), smart local restaurant search, saved recipes and food links with Firestore sync, and an in-app chat assistant.
 
-## Project Architecture
+## Architecture
 
-This repository contains two completely isolated environments:
-1. **`frontend/`**: The Next.js (React) web application. It handles the premium Glassmorphism UI and Firebase Authentication.
-2. **`backend/`**: A Node.js and Express.js REST API. It handles the secure integration with the Google Gemini AI Model and processes the culinary constraints.
+| Layer | Stack |
+|--------|--------|
+| **Frontend** | Vite, React 19, TypeScript, React Router 7, Tailwind, Firebase Auth + Firestore |
+| **Backend** | Node.js, Express 5, Google Gemini (recipes, cravings parser, chat), Tavily (web search), Google Maps Places (Cravings) |
 
----
+The frontend talks to the API under `/api/*` (proxied to `http://localhost:5000` in development).
 
 ## Prerequisites
 
-Before you start, make sure you have the following installed on your machine:
-- [Node.js](https://nodejs.org/) (v16.x or higher)
-- A [Firebase Project](https://console.firebase.google.com/) equipped with Email/Password Authentication.
-- A [Google Gemini API Key](https://aistudio.google.com/).
+- Node.js 18+
+- Firebase project with Email/Password auth and Firestore enabled
+- [Google AI Studio](https://aistudio.google.com/) API key (Gemini)
+- For **Cravings / local search**: Google Cloud project with [Places API](https://developers.google.com/maps/documentation/places/web-service) and a Maps API key
+- Optional: [Tavily](https://tavily.com/) API key for richer web search in `/api/recommend`
 
----
+## Setup
 
-## Installation & Setup
+Install dependencies in **both** `backend/` and `frontend/`.
 
-You must install dependencies for **both** the frontend and backend separately. 
-
-### 1. Set Up the Backend
-The backend requires your Gemini API key strictly to securely connect to the AI model. 
+### Backend
 
 ```bash
 cd backend
 npm install
+cp .env.example .env
 ```
 
-Create a deeply hidden `.env` file inside the `backend/` folder and paste your key:
-```env
-GEMINI_API_KEY="your_actual_gemini_api_key_here"
-```
+Edit `backend/.env` and set:
 
-### 2. Set Up the Frontend
-The frontend requires your Firebase project keys to allow users to sign up securely. 
+- `GEMINI_API_KEY` — required for AI Chef, Cravings query parsing, and chat
+- `TAVILY_API_KEY` — optional; improves online recipe context
+- `GOOGLE_MAPS_API_KEY` — required for `POST /api/cravings` (Places Text Search)
+- `FRONTEND_URL` — optional; production CORS allowlist
+
+### Frontend
 
 ```bash
-cd ../frontend
+cd frontend
 npm install
+cp .env.example .env.local
 ```
 
-Create a hidden `.env.local` file inside the `frontend/` folder entirely in this format:
-```env
-VITE_FIREBASE_API_KEY="your_api_key_from_firebase"
-VITE_FIREBASE_AUTH_DOMAIN="your_firebase_domain"
-VITE_FIREBASE_PROJECT_ID="your_project_id"
-VITE_FIREBASE_STORAGE_BUCKET="your_storage_bucket"
-VITE_FIREBASE_MESSAGING_SENDER_ID="your_sender_id"
-VITE_FIREBASE_APP_ID="your_app_id"
+Edit `frontend/.env.local` with your Firebase web app keys from the Firebase console. If Firebase vars are missing, the UI still runs but auth and Firestore features are disabled.
+
+- `VITE_GEMINI_API_KEY` — optional; only if you use client-side Gemini usage in the bundled chat widget. Prefer restricting this key by HTTP referrer in Google Cloud. For production, routing chat only through `POST /api/chat` avoids exposing server keys.
+
+### Firestore rules
+
+Deploy rules so users can only read/write their own data:
+
+```bash
+firebase deploy --only firestore:rules
 ```
-*(Note: If you omit the Firebase keys, the frontend UI will still render beautifully in "Read-Only Mock Mode", but you won't be able to log in or create database accounts until they are provided).*
 
----
+(`firebase.json` and `firestore.rules` are in the repo root.)
 
-## Running the Application Locally
+## Run locally
 
-For the AI Chef to successfully answer your questions on the site, **both servers must be running at the exact same time.**
+**Terminal 1 — API**
 
-### 1. Start the Backend API (Terminal 1)
 ```bash
 cd backend
-node server.js
+npm run dev
 ```
-*You should see a success log explicitly stating: `✅ MealMind Backend running perfectly on http://localhost:5000`*
 
-### 2. Start the Frontend React App (Terminal 2)
-Open a completely new terminal window alongside the other one:
+Expect: `http://localhost:5000`
+
+**Terminal 2 — UI**
+
 ```bash
 cd frontend
 npm run dev
 ```
 
-### 3. Open the App
-Go to [http://localhost:3000](http://localhost:3000) in your web browser. Type ingredients into the AI Dashboard and you will see the frontend ping your local Express API, which consults Gemini, and returns the customized recipe natively!
+Open **http://localhost:5173** (not port 3000).
+
+## Scripts
+
+| Location | Command | Purpose |
+|----------|---------|---------|
+| `backend/` | `npm run dev` | Watch mode server |
+| `backend/` | `npm start` | Production-style start |
+| `backend/` | `npm test` | Node test runner + cravings unit/property tests |
+| `frontend/` | `npm run dev` | Vite dev server |
+| `frontend/` | `npm run build` | Typecheck + production bundle |
+
+## Documentation
+
+- [Product roadmap](documentation/roadmap.md) — phases, shipped features, backlog
+- [Phase 0 problem framing](documentation/phase0_problem_framing.md)
+- [Local search requirements (spec)](documentation/requirements.md) — Cravings / Places feature spec
+
+## Security and API keys
+
+- **Never commit real secrets.** Use `.env` / `.env.local` only on your machine; they are listed in `.gitignore`.
+- **Only commit** `*.env.example` files with **empty** placeholders (no real keys).
+- Root `.gitignore` and `frontend/` / `backend/` ignore files cover `.env` and `*.local`.
+- If a key was ever committed, **rotate it** in Google Cloud / Firebase / AI Studio and remove it from git history.
+- Restrict Gemini and Maps keys in Google Cloud (HTTP referrers, Android/iOS apps, or IP) for production.
+
+## License
+
+Private / project use unless otherwise noted.

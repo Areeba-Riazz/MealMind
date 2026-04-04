@@ -1,8 +1,10 @@
-# Requirements Document
+# Requirements Document — Smart Local Search (Cravings)
+
+> **Status:** Implemented (see [roadmap](roadmap.md), Phase 3 — Smart Local Search). This file remains the requirements record for the feature.
 
 ## Introduction
 
-MealMind's Smart Local Search (Cravings page) currently returns hard-coded mock restaurant results. This feature replaces the mock data with real restaurant location data sourced from the Google Maps Places API, adds price range filtering derived from natural-language input, and surfaces actionable ordering links to the user. The backend uses the existing Gemini integration to parse the user's craving query and extract structured search parameters before calling the Maps API.
+The Cravings page previously used mock restaurant data; it was replaced with live Google Maps Places results as follows. This feature replaces the mock data with real restaurant location data sourced from the Google Maps Places API, adds price range filtering derived from natural-language input, and surfaces actionable ordering links to the user. The backend uses the existing Gemini integration to parse the user's craving query and extract structured search parameters before calling the Maps API.
 
 ## Glossary
 
