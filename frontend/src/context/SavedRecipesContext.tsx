@@ -95,9 +95,17 @@ export function SavedRecipesProvider({ children }: { children: ReactNode }) {
       unsub = subscribeSavedRecipes(
         user.uid,
         (items) => {
-          if (!cancelled) setSaved(items);
+          if (!cancelled) {
+            setSaved(items);
+            try {
+              localStorage.setItem(key, JSON.stringify(items));
+            } catch {
+              /* quota */
+            }
+          }
         },
-        () => {
+        (err) => {
+          console.warn('[MealMind] Firestore savedRecipes listener:', err?.message ?? err);
           if (!cancelled) setSaved(loadFromStorage(key));
         }
       );

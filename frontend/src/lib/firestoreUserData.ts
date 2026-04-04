@@ -6,7 +6,6 @@ import {
   getDocs,
   limit,
   onSnapshot,
-  orderBy,
   query,
   setDoc,
   writeBatch,
@@ -22,6 +21,8 @@ export interface UserPreferences {
   budget: string;
   skill: string;
   goal: string;
+  /** Free-form notes for the AI chatbot */
+  customPreferences?: string;
 }
 
 export interface UserDietary {
@@ -35,6 +36,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   budget: '300–700 PKR',
   skill: 'Intermediate',
   goal: 'Eat well',
+  customPreferences: '',
 };
 
 export const DEFAULT_DIETARY: UserDietary = {
@@ -89,9 +91,44 @@ export async function setOnboardingCompleted(uid: string, completed = true): Pro
 
 // ─── Saved recipes: users/{uid}/savedRecipes/{recipeId} ───
 
+/** Firestore rejects `undefined` anywhere in document data. */
+function stripUndefinedDeep(value: unknown): unknown {
+  if (value === undefined) return undefined;
+  if (value === null || typeof value !== 'object') return value;
+  if (value instanceof Date) return value;
+  if (Array.isArray(value)) {
+    return value.map(stripUndefinedDeep).filter((v) => v !== undefined);
+  }
+  const obj = value as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v === undefined) continue;
+    const cleaned = stripUndefinedDeep(v);
+    if (cleaned !== undefined) out[k] = cleaned;
+  }
+  return out;
+}
+
+function coerceIsoString(value: unknown): string {
+  if (typeof value === 'string' && value.length > 0) return value;
+  if (value && typeof value === 'object') {
+    const v = value as { toDate?: () => Date; seconds?: number };
+    if (typeof v.toDate === 'function') {
+      try {
+        return v.toDate().toISOString();
+      } catch {
+        /* ignore */
+      }
+    }
+    if (typeof v.seconds === 'number') {
+      return new Date(v.seconds * 1000).toISOString();
+    }
+  }
+  return '';
+}
+
 function savedRecipeToFirestorePayload(recipe: Omit<SavedRecipe, 'id'>): Record<string, unknown> {
-  const payload: Record<string, unknown> = { ...recipe };
-  return payload;
+  return stripUndefinedDeep({ ...recipe }) as Record<string, unknown>;
 }
 
 /** If Firestore has no saved recipes but localStorage does, upload once and clear localStorage. */
@@ -133,14 +170,17 @@ export function subscribeSavedRecipes(
     onNext([]);
     return () => {};
   }
-  const q = query(collection(db, 'users', uid, 'savedRecipes'), orderBy('savedAt', 'desc'));
+  // No orderBy — avoids index requirements; sort client-side. Also tolerates older docs missing fields.
+  const colRef = collection(db, 'users', uid, 'savedRecipes');
   return onSnapshot(
-    q,
+    colRef,
     (snap) => {
       const items: SavedRecipe[] = snap.docs.map((d) => {
-        const data = d.data() as Omit<SavedRecipe, 'id'>;
-        return { id: d.id, ...data };
+        const data = d.data() as Record<string, unknown>;
+        const savedAt = coerceIsoString(data.savedAt) || new Date().toISOString();
+        return { id: d.id, ...data, savedAt } as SavedRecipe;
       });
+      items.sort((a, b) => (b.savedAt ?? '').localeCompare(a.savedAt ?? ''));
       onNext(items);
     },
     (e) => onErr(e as Error)
@@ -150,7 +190,8 @@ export function subscribeSavedRecipes(
 export async function upsertSavedRecipe(uid: string, recipe: SavedRecipe): Promise<void> {
   if (!db) throw new Error('Firestore is not configured');
   const { id, ...rest } = recipe;
-  await setDoc(doc(db, 'users', uid, 'savedRecipes', id), savedRecipeToFirestorePayload(rest));
+  const payload = savedRecipeToFirestorePayload(rest);
+  await setDoc(doc(db, 'users', uid, 'savedRecipes', id), payload);
 }
 
 export async function deleteSavedRecipeDoc(uid: string, recipeId: string): Promise<void> {
@@ -202,11 +243,16 @@ export function subscribeFoodLinks(
     onNext([]);
     return () => {};
   }
-  const q = query(collection(db, 'users', uid, 'foodLinks'), orderBy('createdAt', 'desc'));
+  const colRef = collection(db, 'users', uid, 'foodLinks');
   return onSnapshot(
-    q,
+    colRef,
     (snap) => {
-      const items: FoodLink[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<FoodLink, 'id'>) }));
+      const items: FoodLink[] = snap.docs.map((d) => {
+        const data = d.data() as Record<string, unknown>;
+        const createdAt = coerceIsoString(data.createdAt) || new Date().toISOString();
+        return { id: d.id, ...data, createdAt } as FoodLink;
+      });
+      items.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
       onNext(items);
     },
     (e) => onErr(e as Error)
@@ -220,7 +266,8 @@ export async function addFoodLink(
   if (!db) throw new Error('Firestore is not configured');
   const ref = doc(collection(db, 'users', uid, 'foodLinks'));
   const createdAt = new Date().toISOString();
-  await setDoc(ref, { ...data, createdAt });
+  const payload = stripUndefinedDeep({ ...data, createdAt }) as Record<string, unknown>;
+  await setDoc(ref, payload);
   return ref.id;
 }
 

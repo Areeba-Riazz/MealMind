@@ -73,10 +73,16 @@ export function FoodLinksProvider({ children }: { children: ReactNode }) {
       (items) => {
         if (!cancelled) {
           setLinks(items);
+          try {
+            localStorage.setItem(localKey(uid), JSON.stringify(items));
+          } catch {
+            /* quota */
+          }
           setLoading(false);
         }
       },
-      () => {
+      (err) => {
+        console.warn('[MealMind] Firestore foodLinks listener:', err?.message ?? err);
         if (!cancelled) {
           setLinks(loadLocal(uid));
           setLoading(false);

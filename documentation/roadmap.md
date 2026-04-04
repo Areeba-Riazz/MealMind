@@ -46,7 +46,7 @@ Fridge-first cooking — the primary use case.
 
 ---
 
-## Phase 3 — MVP Launch `Q2 2025` 🟡 In Progress
+## Phase 3 — MVP Launch `Q2 2025` ✅ Complete
 
 Order-in feature, public-facing pages, launch readiness, and app shell.
 
@@ -77,16 +77,17 @@ Order-in feature, public-facing pages, launch readiness, and app shell.
   - [x] Online recipe cards with external link
   - [x] **Craving / restaurant cards** — save restaurants from Smart Local Search results
   - [x] Filter tabs: All · AI Recipes · Online Finds · Cravings
-  - [x] **Cloud sync** — saved recipes in Firestore (`users/{uid}/savedRecipes`); one-time migration from `localStorage` when empty; realtime listener; `localStorage` fallback if Firebase is not configured
-- [x] **Food Links** — card list with platform tags + order buttons; Firestore `users/{uid}/foodLinks` with add/remove UI; demo seed on first empty load; offline demo when Firebase is missing
-- [x] **Profile Firestore** — preferences and dietary restrictions on `users/{uid}` document; load on mount; Save buttons persist to Firestore
+  - [x] **Cloud sync** — saved recipes in Firestore (`users/{uid}/savedRecipes`); one-time migration from `localStorage` when empty; realtime listener; `localStorage` fallback if Firebase is not configured; snapshot mirrored to `localStorage` for resilience; writes strip `undefined` (Firestore-safe payloads)
+- [x] **Food Links** — card list with platform tags + order buttons; Firestore `users/{uid}/foodLinks` with add/remove UI; demo seed on first empty load; offline demo when Firebase is missing; same persistence safeguards as saved recipes
+- [x] **Profile Firestore** — preferences and dietary restrictions on `users/{uid}` document; load on mount; Save buttons persist to Firestore; **PreferencesContext** syncs profile data to the in-app AI chat
 - [x] **Onboarding** — step indicator, skill pill selector, navigation
 - [x] Backend port conflict error handling — explicit `EADDRINUSE` message + graceful exit
 - [x] **Firestore security rules** — `firestore.rules` + `firebase.json` for deploy (`firebase deploy --only firestore:rules`)
-- [ ] Macro & calorie display in recipe output (MacroBadges component)
+- [x] **AI chat widget** — floating assistant; `POST /api/chat` on backend (Gemini) with user preference context from profile
+- [x] **Per-serving nutrition** — AI Chef (`/api/recommend`) returns structured macros; **MacroBadges** on Demo + saved AI recipes
+- [x] **Backend tests** — `node --test server.test.js` for cravings price filter, `formatResults`, haversine (fast-check property tests)
 - [ ] Google Sign-In (OAuth)
 - [ ] Mobile responsiveness QA pass (375px / 390px)
-- [x] "Save recipe" action on AI Chef (Demo) page → saved collection
 
 ---
 
