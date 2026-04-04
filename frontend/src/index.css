@@ -20,9 +20,53 @@
   --primary: #e8522a;
   --text-main: #f2ede4;
   --text-muted: #777;
+
+  /* Glass/Overlay specifically tailored for deep dark mode */
+  --sidebar-bg: rgba(14,14,14,0.92);
+  --shell-bg: #0c0c0c;
+  --topbar-bg: rgba(12,12,12,0.8);
+  --dash-card-bg: rgba(22,22,22,0.7);
+  --input-bg: rgba(255,255,255,0.04);
+  --glass-overlay: rgba(255,255,255,0.04);
+  --glass-hover: rgba(255,255,255,0.07);
+  --hero-bg: rgba(22,22,22,0.8);
+  --feat-card-bg: var(--surface);
+  --crav-tag-bg: rgba(255,255,255,0.04);
 }
 
-*, *::before, *::after {
+[data-theme='light'] {
+  --bg: #faf7f2;
+  --surface: #ffffff;
+  --surface2: #f2ede4;
+  --border: rgba(0, 0, 0, 0.08);
+  --border2: rgba(0, 0, 0, 0.15);
+  --text: #1a1a1a;
+  --muted: #666;
+  --muted2: #888;
+  --accent: #e8522a;
+  --accent2: #f5c842;
+  --accent3: #2ec27e;
+  
+  --primary: #e8522a;
+  --text-main: #1a1a1a;
+  --text-muted: #666;
+
+  /* Smooth elegant light glass */
+  --sidebar-bg: rgba(255,255,255,0.95);
+  --shell-bg: #faf7f2;
+  --topbar-bg: rgba(250,247,242,0.85);
+  --dash-card-bg: rgba(255,255,255,0.9);
+  --input-bg: rgba(0,0,0,0.03);
+  --glass-overlay: rgba(0,0,0,0.03);
+  --glass-hover: rgba(0,0,0,0.06);
+  --hero-bg: rgba(255,255,255,0.9);
+  --feat-card-bg: #ffffff;
+  --crav-tag-bg: rgba(0,0,0,0.04);
+}
+
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
@@ -134,8 +178,15 @@ body {
 
 /* ── Animations ── */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(16px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .animate-fade-in {

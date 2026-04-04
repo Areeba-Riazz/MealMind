@@ -1,12 +1,14 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { getAuth, signOut } from 'firebase/auth';
 import { app } from '../lib/firebase';
 
 export default function Navbar() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { user, loading } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const { pathname } = useLocation();
   const isLanding = pathname === '/';
 
@@ -28,7 +30,7 @@ export default function Navbar() {
           position: fixed; top: 0; left: 0; right: 0; z-index: 200;
           display: flex; align-items: center; justify-content: space-between;
           padding: 1rem 3rem;
-          backdrop-filter: blur(24px); background: rgba(12,12,12,0.82);
+          backdrop-filter: blur(24px); background: var(--topbar-bg);
           border-bottom: 1px solid var(--border);
         }
         .nav-logo { font-family: var(--font-head); font-weight: 800; font-size: 1.45rem; color: var(--text); text-decoration: none; letter-spacing: -0.5px; }
@@ -46,6 +48,8 @@ export default function Navbar() {
         .nav-username { color: var(--muted); font-size: 0.85rem; max-width: 110px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .btn-nav-logout { background: none; border: 1px solid var(--border); color: var(--muted); font-size: 0.82rem; padding: 0.4rem 0.9rem; border-radius: 100px; cursor: pointer; font-family: var(--font-body); transition: all 0.2s; }
         .btn-nav-logout:hover { color: var(--text); border-color: var(--border2); }
+        .nav-theme-toggle { background: transparent; border: 1px solid var(--border); color: var(--muted); font-size: 1.1rem; padding: 0.4rem; border-radius: 50%; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; margin-right: 0.5rem; }
+        .nav-theme-toggle:hover { color: var(--text); border-color: var(--border2); background: var(--glass-hover); }
 
         /* Hamburger */
         .nav-hamburger { display: none; flex-direction: column; gap: 5px; cursor: pointer; padding: 4px; background: none; border: none; }
@@ -55,7 +59,7 @@ export default function Navbar() {
         .nav-mobile-drawer {
           display: none;
           position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 190;
-          background: rgba(12,12,12,0.97); backdrop-filter: blur(24px);
+          background: var(--hero-bg); backdrop-filter: blur(24px);
           flex-direction: column; align-items: center; justify-content: center; gap: 2rem;
           padding: 2rem;
         }
@@ -138,6 +142,9 @@ export default function Navbar() {
         </div>
 
         <div className="nav-right">
+          <button className="nav-theme-toggle" onClick={toggleTheme} aria-label="Toggle Theme">
+            {theme === 'dark' ? '☀️' : '🌙'}
+          </button>
           {!loading && (
             user ? (
               <div className="nav-user">

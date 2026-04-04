@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
 import { useSavedRecipes } from '../context/SavedRecipesContext';
+import { useAuth } from '../context/AuthContext';
+import { logEvent } from '../lib/analytics';
 import MacroBadges from '../components/MacroBadges';
 import { parseNutrition, type RecipeNutrition } from '../types/recipeNutrition';
 
@@ -34,15 +36,16 @@ interface Recommendation {
 
 export default function DemoPage() {
   const { saveRecipe, removeRecipe, isSaved, saved } = useSavedRecipes();
-
+  const { user } = useAuth();
+  
   const [ingredients, setIngredients] = useState('');
-  const [budget, setBudget]           = useState('');
-  const [time, setTime]               = useState('');
-  const [goal, setGoal]               = useState('');
-  const [isLoading, setIsLoading]     = useState(false);
+  const [budget, setBudget] = useState('');
+  const [time, setTime] = useState('');
+  const [goal, setGoal] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
   const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
-  const [error, setError]             = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [aiSaveFlash, setAiSaveFlash] = useState(false);
 
   useEffect(() => {
@@ -72,6 +75,12 @@ export default function DemoPage() {
       if (!data.recipeName || !data.instructions) throw new Error('Invalid response format.');
       const nutrition = parseNutrition(data.nutrition);
       setRecommendation(nutrition ? { ...data, nutrition } : { ...data, nutrition: undefined });
+
+      void logEvent({
+        userId: user?.uid ?? 'anonymous',
+        type: 'generate_recipe',
+        metadata: { ingredients, budget, time, goal }
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred.');
     } finally {
@@ -113,6 +122,12 @@ export default function DemoPage() {
       });
       setAiSaveFlash(true);
       setTimeout(() => setAiSaveFlash(false), 1800);
+
+      void logEvent({
+        userId: user?.uid ?? 'anonymous',
+        type: 'save_recipe',
+        metadata: { title: recommendation.recipeName, source: 'ai' }
+      });
     }
   };
 
@@ -123,8 +138,14 @@ export default function DemoPage() {
       if (match) removeRecipe(match.id);
     } else {
       let domain = '';
-      try { domain = new URL(r.url).hostname.replace('www.', ''); } catch {}
+      try { domain = new URL(r.url).hostname.replace('www.', ''); } catch { }
       saveRecipe({ type: 'online', title: r.title, url: r.url, snippet: r.snippet, domain });
+
+      void logEvent({
+        userId: user?.uid ?? 'anonymous',
+        type: 'save_recipe',
+        metadata: { title: r.title, source: 'online' }
+      });
     }
   };
 
@@ -135,21 +156,21 @@ export default function DemoPage() {
         @keyframes demofade { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
 
         /* Form card */
-        .demo-card { background:rgba(22,22,22,0.8); border:1px solid rgba(255,255,255,0.07); border-radius:22px; padding:2rem 2.2rem; backdrop-filter:blur(20px); }
+        .demo-card { background:var(--dash-card-bg); border:1px solid var(--border); border-radius:22px; padding:2rem 2.2rem; backdrop-filter:blur(20px); }
         .demo-card h2 { font-family:'Syne',sans-serif; font-size:1.3rem; font-weight:800; margin:0 0 0.3rem; letter-spacing:-0.3px; }
-        .demo-card .demo-sub { font-size:0.87rem; color:rgba(255,255,255,0.45); margin:0 0 1.6rem; }
+        .demo-card .demo-sub { font-size:0.87rem; color:var(--muted); margin:0 0 1.6rem; }
 
         /* Demo fill buttons */
         .demo-fills { display:flex; gap:0.7rem; margin-bottom:1.4rem; flex-wrap:wrap; }
-        .demo-fill-btn { font:600 0.78rem 'DM Sans',sans-serif; cursor:pointer; padding:0.4rem 0.9rem; border-radius:100px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.03); color:rgba(255,255,255,0.5); transition:all 0.18s; }
+        .demo-fill-btn { font:600 0.78rem 'DM Sans',sans-serif; cursor:pointer; padding:0.4rem 0.9rem; border-radius:100px; border:1px solid var(--border2); background:var(--glass-overlay); color:var(--muted); transition:all 0.18s; }
         .demo-fill-btn:hover { border-color:rgba(232,82,42,0.4); color:var(--accent); background:rgba(232,82,42,0.06); }
 
         /* Form fields */
-        .demo-field { margin-bottom:1.1rem; }
-        .demo-field label { display:block; font-size:0.78rem; font-weight:600; color:rgba(255,255,255,0.45); margin-bottom:0.45rem; letter-spacing:0.2px; text-transform:uppercase; }
+        .demo-field { margin-bottom:1.2rem; position:relative; }
+        .demo-field label { display:block; font-size:0.78rem; font-weight:600; color:var(--muted); margin-bottom:0.45rem; letter-spacing:0.2px; text-transform:uppercase; }
         .demo-field label .req { color:var(--accent); }
-        .demo-field input, .demo-field textarea { width:100%; padding:0.85rem 1rem; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:13px; color:#f2ede4; font:0.92rem 'DM Sans',sans-serif; outline:none; resize:vertical; transition:border-color 0.2s, box-shadow 0.2s; box-sizing:border-box; }
-        .demo-field input::placeholder, .demo-field textarea::placeholder { color:rgba(255,255,255,0.22); }
+        .demo-field input, .demo-field textarea { width:100%; padding:0.85rem 1rem; background:var(--input-bg); border:1px solid var(--border2); border-radius:13px; color:var(--text); font:0.92rem 'DM Sans',sans-serif; outline:none; resize:vertical; transition:border-color 0.2s, box-shadow 0.2s; box-sizing:border-box; }
+        .demo-field input::placeholder, .demo-field textarea::placeholder { color:var(--muted2); }
         .demo-field input:focus, .demo-field textarea:focus { border-color:rgba(232,82,42,0.5); background:rgba(232,82,42,0.04); box-shadow:0 0 0 3px rgba(232,82,42,0.1); }
 
         /* Submit */
@@ -159,12 +180,12 @@ export default function DemoPage() {
         .demo-submit:disabled { background:rgba(232,82,42,0.28); color:rgba(255,255,255,0.45); cursor:not-allowed; }
 
         /* Loading */
-        .demo-loading { display:flex; align-items:center; justify-content:center; gap:0.8rem; padding:3rem; color:rgba(255,255,255,0.5); font-size:0.92rem; }
+        .demo-loading { display:flex; align-items:center; justify-content:center; gap:0.8rem; padding:3rem; color:var(--muted); font-size:0.92rem; }
         .demo-spinner { width:22px; height:22px; border:2px solid rgba(232,82,42,0.3); border-top-color:var(--accent); border-radius:50%; animation:dspin 0.8s linear infinite; flex-shrink:0; }
         @keyframes dspin { to { transform:rotate(360deg); } }
 
-        /* Result card */
-        .demo-result { background:rgba(22,22,22,0.8); border:1px solid rgba(255,255,255,0.07); border-radius:22px; padding:2rem 2.2rem; backdrop-filter:blur(20px); animation:demofade 0.4s cubic-bezier(0.22,1,0.36,1) both; }
+        /* Results */
+        .demo-result { background:var(--dash-card-bg); border:1px solid var(--border); border-radius:22px; padding:2rem 2.2rem; backdrop-filter:blur(20px); animation:demofade 0.4s cubic-bezier(0.22,1,0.36,1) both; }
         .demo-fallback-banner { display:flex; gap:0.9rem; padding:1rem 1.2rem; background:rgba(245,200,66,0.07); border:1px solid rgba(245,200,66,0.22); border-radius:14px; margin-bottom:1.6rem; }
         .demo-fallback-banner strong { display:block; color:var(--accent2); font-size:0.88rem; margin-bottom:0.25rem; }
         .demo-fallback-banner p { color:rgba(255,255,255,0.45); font-size:0.82rem; line-height:1.5; margin:0; }
@@ -174,55 +195,54 @@ export default function DemoPage() {
         .demo-recipe-title { font-family:'Syne',sans-serif; font-size:1.6rem; font-weight:800; letter-spacing:-0.5px; margin:0; line-height:1.2; flex:1; }
 
         /* Save buttons */
-        .demo-save-btn { display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 1.1rem; border-radius:100px; border:1px solid rgba(255,255,255,0.12); background:transparent; color:rgba(255,255,255,0.55); font:600 0.8rem 'DM Sans',sans-serif; cursor:pointer; transition:all 0.18s; flex-shrink:0; white-space:nowrap; }
+        .demo-save-btn { display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 1.1rem; border-radius:100px; border:1px solid var(--border2); background:transparent; color:var(--muted); font:600 0.8rem 'DM Sans',sans-serif; cursor:pointer; transition:all 0.18s; flex-shrink:0; white-space:nowrap; }
         .demo-save-btn:hover { border-color:rgba(232,82,42,0.45); color:var(--accent); background:rgba(232,82,42,0.07); }
         .demo-save-btn.saved { border-color:rgba(232,82,42,0.5); color:var(--accent); background:rgba(232,82,42,0.1); }
         .demo-save-btn.flash { animation:saveflash 0.35s ease; }
-        @keyframes saveflash { 0%{transform:scale(1)} 40%{transform:scale(1.12)} 100%{transform:scale(1)} }
+        @keyframes saveflash { 0% { transform:scale(1); } 50% { transform:scale(1.05); } 100% { transform:scale(1); } }
 
-        .demo-online-save-btn { padding:0.28rem 0.7rem; font-size:0.72rem; border-radius:100px; border:1px solid rgba(255,255,255,0.1); background:transparent; color:rgba(255,255,255,0.4); font:600 0.72rem 'DM Sans',sans-serif; cursor:pointer; transition:all 0.18s; flex-shrink:0; white-space:nowrap; }
+        .demo-online-save-btn { padding:0.28rem 0.7rem; font-size:0.72rem; border-radius:100px; border:1px solid var(--border2); background:transparent; color:var(--muted); font:600 0.72rem 'DM Sans',sans-serif; cursor:pointer; transition:all 0.18s; flex-shrink:0; white-space:nowrap; }
         .demo-online-save-btn:hover { border-color:rgba(232,82,42,0.4); color:var(--accent); background:rgba(232,82,42,0.07); }
         .demo-online-save-btn.saved { border-color:rgba(232,82,42,0.5); color:var(--accent); background:rgba(232,82,42,0.1); }
 
-        /* Found online section */
-        .demo-section-label { font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; color:rgba(255,255,255,0.35); margin:0 0 0.9rem; display:flex; align-items:center; gap:0.5rem; }
-        .demo-section-label::after { content:''; flex:1; height:1px; background:rgba(255,255,255,0.06); }
+        /* Online section */
+        .demo-section-label { font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; color:var(--muted); margin:0 0 0.9rem; display:flex; align-items:center; gap:0.5rem; }
+        .demo-section-label::after { content:''; flex:1; height:1px; background:var(--border); }
         .demo-online-grid { display:flex; flex-direction:column; gap:0.6rem; margin-bottom:1.8rem; }
-        .demo-online-card { display:flex; align-items:flex-start; gap:0.9rem; padding:0.85rem 1rem; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:13px; transition:border-color 0.18s, background 0.18s; }
+        .demo-online-card { display:flex; align-items:flex-start; gap:0.9rem; padding:0.85rem 1rem; background:var(--glass-overlay); border:1px solid var(--border2); border-radius:13px; transition:border-color 0.18s, background 0.18s; }
         .demo-online-card:hover { border-color:rgba(232,82,42,0.25); background:rgba(232,82,42,0.04); }
         .demo-online-icon { font-size:1.2rem; flex-shrink:0; margin-top:0.05rem; }
         .demo-online-body { min-width:0; flex:1; }
-        .demo-online-link { display:block; text-decoration:none; }
-        .demo-online-title { font-size:0.88rem; font-weight:700; color:#f2ede4; margin:0 0 0.2rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .demo-online-title { font-size:0.88rem; font-weight:700; color:var(--text); margin:0 0 0.2rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .demo-online-title:hover { color:var(--accent); }
-        .demo-online-snippet { font-size:0.77rem; color:rgba(255,255,255,0.38); line-height:1.5; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; margin:0; }
+        .demo-online-snippet { font-size:0.77rem; color:var(--muted); line-height:1.5; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; margin:0; }
         .demo-online-domain { font-size:0.72rem; color:var(--accent); margin-top:0.3rem; font-weight:600; opacity:0.8; }
         .demo-online-actions { display:flex; align-items:center; gap:0.5rem; margin-top:0.5rem; }
 
-        /* Steps */
-        .demo-steps-label { font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; color:rgba(255,255,255,0.35); margin:0 0 1rem; }
+        /* Recipe steps */
+        .demo-steps-label { font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; color:var(--muted); margin:0 0 1rem; }
         .demo-steps { list-style:none; margin:0 0 2rem; padding:0; display:flex; flex-direction:column; gap:0.75rem; }
         .demo-step { display:flex; gap:0.9rem; align-items:flex-start; }
         .demo-step-num { width:26px; height:26px; border-radius:50%; background:rgba(232,82,42,0.12); border:1px solid rgba(232,82,42,0.28); display:flex; align-items:center; justify-content:center; font:700 0.72rem 'Syne',sans-serif; color:var(--accent); flex-shrink:0; margin-top:0.1rem; }
-        .demo-step-text { font-size:0.92rem; color:rgba(255,255,255,0.75); line-height:1.65; }
+        .demo-step-text { font-size:0.92rem; color:var(--text); line-height:1.65; }
 
         /* References */
         .demo-refs { margin-bottom:1.8rem; }
         .demo-ref-list { display:flex; flex-wrap:wrap; gap:0.5rem; }
-        .demo-ref-item { display:inline-flex; align-items:center; gap:0.4rem; padding:0.35rem 0.8rem; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:100px; text-decoration:none; font-size:0.75rem; font-weight:600; color:rgba(255,255,255,0.55); transition:all 0.18s; }
+        .demo-ref-item { display:inline-flex; align-items:center; gap:0.4rem; padding:0.35rem 0.8rem; background:var(--glass-overlay); border:1px solid var(--border2); border-radius:100px; text-decoration:none; font-size:0.75rem; font-weight:600; color:var(--muted); transition:all 0.18s; }
         .demo-ref-item:hover { border-color:rgba(232,82,42,0.4); color:var(--accent); background:rgba(232,82,42,0.07); }
         .demo-ref-dot { width:6px; height:6px; border-radius:50%; background:var(--accent); opacity:0.7; flex-shrink:0; }
 
-        /* Bottom buttons */
+        /* Bottom section */
         .demo-bottom-btns { display:flex; gap:0.7rem; flex-wrap:wrap; }
-        .demo-again-btn { flex:1; min-width:160px; padding:0.9rem; border-radius:100px; border:1px solid rgba(255,255,255,0.1); background:transparent; color:#f2ede4; font:700 0.92rem 'DM Sans',sans-serif; cursor:pointer; transition:all 0.18s; }
+        .demo-again-btn { flex:1; min-width:160px; padding:0.9rem; border-radius:100px; border:1px solid var(--border2); background:transparent; color:var(--text); font:700 0.92rem 'DM Sans',sans-serif; cursor:pointer; transition:all 0.18s; }
         .demo-again-btn:hover { border-color:var(--accent); background:rgba(232,82,42,0.08); color:var(--accent); }
 
         /* Error */
-        .demo-error { text-align:center; padding:2.5rem 1.5rem; background:rgba(22,22,22,0.8); border:1px solid rgba(255,80,80,0.18); border-radius:22px; }
+        .demo-error { text-align:center; padding:2.5rem 1.5rem; background:var(--dash-card-bg); border:1px solid rgba(255,80,80,0.18); border-radius:22px; }
         .demo-error h3 { font-family:'Syne',sans-serif; font-size:1.3rem; font-weight:800; color:#ff8a8a; margin:0 0 0.5rem; }
-        .demo-error p { color:rgba(255,255,255,0.45); font-size:0.9rem; margin:0 0 1.6rem; }
-        .demo-error button { padding:0.7rem 1.8rem; border-radius:100px; border:none; background:var(--accent); color:#fff; font:700 0.9rem 'DM Sans',sans-serif; cursor:pointer; box-shadow:0 4px 18px rgba(232,82,42,0.28); transition:all 0.2s; }
+        .demo-error p { color:var(--muted); font-size:0.9rem; margin:0 0 1.6rem; }
+        .demo-error button { padding:0.7rem 1.8rem; border-radius:100px; border:none; background:var(--accent); color:rgba(255,255,255,0.9); font:700 0.9rem 'DM Sans',sans-serif; cursor:pointer; box-shadow:0 4px 18px rgba(232,82,42,0.28); transition:all 0.2s; }
         .demo-error button:hover { transform:translateY(-2px); }
       `}</style>
 
@@ -309,7 +329,7 @@ export default function DemoPage() {
                 <div className="demo-online-grid">
                   {recommendation.foundOnline.map((r, i) => {
                     let domain = '';
-                    try { domain = new URL(r.url).hostname.replace('www.', ''); } catch {}
+                    try { domain = new URL(r.url).hostname.replace('www.', ''); } catch { }
                     const alreadySaved = isSaved(r.title, r.url);
                     return (
                       <div key={i} className="demo-online-card">

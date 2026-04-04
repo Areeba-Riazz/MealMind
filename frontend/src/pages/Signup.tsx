@@ -46,14 +46,7 @@ export default function Signup() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        :root {
-          --bg: #0c0c0c; --surface: #161616; --surface2: #1f1f1f;
-          --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.13);
-          --text: #f2ede4; --muted: #777; --muted2: #444;
-          --accent: #e8522a; --accent2: #f5c842; --accent3: #2ec27e;
-          --font-head: 'Syne', sans-serif; --font-body: 'DM Sans', sans-serif;
-          --radius: 18px; --radius-lg: 26px;
-        }
+
         html, body { height: 100%; overflow: hidden; }
         body {
           background: var(--bg); color: var(--text);

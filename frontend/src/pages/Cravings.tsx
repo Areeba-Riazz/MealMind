@@ -2,6 +2,8 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { useFoodLinks } from '../context/FoodLinksContext';
+import { useAuth } from '../context/AuthContext';
+import { logEvent } from '../lib/analytics';
 import SkeletonCard from '../components/SkeletonCard';
 import CravingsMap from '../components/CravingsMap';
 
@@ -17,14 +19,23 @@ interface CravingResult {
   lng: number | null;
 }
 
+const QUICK = [
+  '🍔 I want a spicy zinger burger',
+  '🍕 I want an extra large pepperoni pizza',
+  '🥩 I want a juicy medium rare steak',
+  '🥗 I want a healthy grilled chicken salad',
+  '🍣 I want a freshly made sushi platter',
+];
+
 export default function Cravings() {
-  const [craving, setCraving] = useState('');
+  const [query, setQuery] = useState('');
   const [area, setArea] = useState('');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<CravingResult[] | null>(null);
   const [emptyMessage, setEmptyMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const { user } = useAuth();
   const geo = useGeolocation();
   const { links, addFoodLink, removeFoodLink } = useFoodLinks();
 
@@ -36,7 +47,7 @@ export default function Cravings() {
     setError(null);
 
     try {
-      const body: Record<string, unknown> = { query: craving };
+      const body: Record<string, unknown> = { query };
 
       if (geo.lat != null && geo.lng != null) {
         body.lat = geo.lat;
@@ -65,6 +76,12 @@ export default function Cravings() {
       }
 
       setResults(data.results);
+      
+      void logEvent({
+        userId: user?.uid ?? 'anonymous',
+        type: 'search_craving',
+        metadata: { query, location: (geo.lat && geo.lng) ? 'browser' : 'manual' }
+      });
     } catch {
       setError('Could not reach the server. Please check your connection and try again.');
     } finally {
@@ -72,13 +89,10 @@ export default function Cravings() {
     }
   };
 
-  const QUICK = ['🍔 Burger', '🍛 Biryani', '🌯 Wrap', '🍕 Pizza', '🍜 Ramen', '🥗 Healthy bowl'];
-
   const hasCoords = geo.lat != null && geo.lng != null;
   const geoReady = !geo.loading;
-  /** When GPS did not yield coordinates, show area field (body `area` or location in the craving via Gemini). */
   const needsArea = geoReady && !hasCoords;
-  const canSubmit = !loading && geoReady && craving.trim() !== '';
+  const canSubmit = !loading && geoReady && query.trim() !== '';
 
   return (
     <>
@@ -86,107 +100,82 @@ export default function Cravings() {
         .crav-wrap { max-width: 720px; margin: 0 auto; animation: cravfade 0.45s cubic-bezier(0.22,1,0.36,1) both; }
         @keyframes cravfade { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
 
-        /* Search card */
-        .crav-search-card { background:rgba(22,22,22,0.8); border:1px solid rgba(255,255,255,0.07); border-radius:22px; padding:2rem; backdrop-filter:blur(20px); margin-bottom:1.6rem; }
-        .crav-search-card h2 { font-family:'Syne',sans-serif; font-size:1.3rem; font-weight:800; margin:0 0 0.35rem; letter-spacing:-0.3px; }
-        .crav-search-card p { font-size:0.87rem; color:rgba(255,255,255,0.45); margin:0 0 1.4rem; }
-
-        /* Input */
-        .crav-input-wrap { position:relative; margin-bottom:0.9rem; }
-        .crav-input { width:100%; padding:1rem 1.15rem; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); border-radius:14px; color:#f2ede4; font:0.95rem 'DM Sans',sans-serif; outline:none; transition:border-color 0.2s, box-shadow 0.2s; resize:none; }
-        .crav-input::placeholder { color:rgba(255,255,255,0.25); }
-        .crav-input:focus { border-color:rgba(232,82,42,0.5); background:rgba(232,82,42,0.04); box-shadow:0 0 0 3px rgba(232,82,42,0.1); }
-
-        /* Quick chips */
+        .craving-head { margin-bottom:1.5rem; }
+        .craving-title { font-family:'Syne',sans-serif; font-size:1.45rem; font-weight:800; margin:0 0 0.5rem; letter-spacing:-0.5px; display:flex; align-items:center; gap:0.5rem; color:var(--text); }
+        .craving-sub { font-size:0.87rem; color:var(--muted); margin:0 0 1.5rem; }
+        
         .crav-quick { display:flex; flex-wrap:wrap; gap:0.5rem; margin-bottom:1.2rem; }
-        .crav-quick-chip { font:500 0.78rem 'DM Sans',sans-serif; cursor:pointer; padding:0.35rem 0.8rem; border-radius:100px; border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.03); color:rgba(255,255,255,0.5); transition:all 0.18s; }
+        .crav-quick-chip { font:500 0.78rem 'DM Sans',sans-serif; cursor:pointer; padding:0.35rem 0.8rem; border-radius:100px; border:1px solid var(--border2); background:var(--glass-overlay); color:var(--muted); transition:all 0.18s; }
         .crav-quick-chip:hover { border-color:rgba(232,82,42,0.4); color:var(--accent); background:rgba(232,82,42,0.06); }
 
-        /* Submit */
-        .crav-submit { width:100%; padding:0.9rem; border-radius:100px; border:none; font:700 0.95rem 'DM Sans',sans-serif; cursor:pointer; transition:all 0.2s; }
-        .crav-submit:not(:disabled) { background:var(--accent); color:#fff; box-shadow:0 6px 22px rgba(232,82,42,0.32); }
-        .crav-submit:not(:disabled):hover { transform:translateY(-2px); box-shadow:0 10px 30px rgba(232,82,42,0.42); }
-        .crav-submit:disabled { background:rgba(232,82,42,0.3); color:rgba(255,255,255,0.5); cursor:not-allowed; }
-
-        /* Loading */
-        .crav-loading { display:flex; align-items:center; justify-content:center; gap:0.8rem; padding:2.5rem; color:rgba(255,255,255,0.5); font-size:0.92rem; }
-        .crav-spinner { width:20px; height:20px; border:2px solid rgba(232,82,42,0.3); border-top-color:var(--accent); border-radius:50%; animation:spin 0.8s linear infinite; }
+        .crav-input-wrap { position:relative; margin-bottom:0.9rem; }
+        .craving-input { width:100%; background:var(--input-bg); border:1px solid var(--border2); border-radius:14px; padding:1rem 1.15rem; color:var(--text); font:0.95rem 'DM Sans',sans-serif; outline:none; transition:border-color 0.2s; }
+        .craving-input::placeholder { color:var(--muted2); }
+        .craving-input:focus { border-color:var(--accent); }
+        
+        .btn-hunt { width:100%; background:var(--accent); color:rgba(255,255,255,0.95); border:none; border-radius:100px; padding:0.9rem; font:700 0.95rem 'DM Sans',sans-serif; cursor:pointer; box-shadow:0 4px 12px rgba(232,82,42,0.25); transition:all 0.2s; }
+        .btn-hunt:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .craving-error { background:rgba(255,80,80,0.08); border:1px solid rgba(255,80,80,0.15); border-radius:12px; padding:0.8rem 1rem; color:#ff8a8a; font-size:0.85rem; margin-bottom:1.5rem; }
+        
+        .craving-loading { display:flex; align-items:center; justify-content:center; gap:0.8rem; padding:2rem; color:var(--muted); font-size:0.92rem; }
+        .spinner { width:20px; height:20px; border:2px solid rgba(232,82,42,0.3); border-top-color:var(--accent); border-radius:50%; animation:spin 0.8s linear infinite; }
         @keyframes spin { to { transform:rotate(360deg); } }
 
-        /* Results */
-        .crav-results-label { font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; color:rgba(255,255,255,0.35); margin:0 0 0.9rem; }
+        .crav-results-label { font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; color:var(--muted); margin:0 0 0.9rem; }
         .crav-results { display:flex; flex-direction:column; gap:0.9rem; }
-        .crav-result-card { background:rgba(22,22,22,0.7); border:1px solid rgba(255,255,255,0.07); border-radius:18px; padding:1.3rem 1.4rem; display:flex; align-items:center; gap:1.1rem; backdrop-filter:blur(12px); transition:border-color 0.2s, transform 0.2s; }
-        .crav-result-card:hover { border-color:rgba(255,255,255,0.12); transform:translateY(-2px); }
+        .crav-result-card { background:var(--glass-overlay); border:1px solid var(--border2); border-radius:18px; padding:1.3rem 1.4rem; display:flex; align-items:center; gap:1.1rem; backdrop-filter:blur(12px); }
         .crav-result-body { flex:1; min-width:0; }
-        .crav-result-item { font-family:'Syne',sans-serif; font-size:1rem; font-weight:700; margin:0 0 0.2rem; }
-        .crav-result-rest { font-size:0.84rem; color:rgba(255,255,255,0.55); margin:0 0 0.45rem; font-weight:500; }
+        .crav-result-item { font-family:'Syne',sans-serif; font-size:1rem; font-weight:700; margin:0 0 0.2rem; color:var(--text); }
+        .crav-result-rest { font-size:0.84rem; color:var(--muted); margin:0 0 0.45rem; font-weight:500; }
         .crav-result-tags { display:flex; flex-wrap:wrap; gap:0.45rem; }
-        .crav-result-tag { display:inline-flex; align-items:center; gap:0.25rem; font-size:0.71rem; font-weight:600; color:rgba(255,255,255,0.4); background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:100px; padding:0.18rem 0.55rem; }
+        .crav-result-tag { display:inline-flex; align-items:center; gap:0.25rem; font-size:0.71rem; font-weight:600; color:var(--muted); background:var(--input-bg); border:1px solid var(--border2); border-radius:100px; padding:0.18rem 0.55rem; }
         .crav-result-tag.stars { color:#f5c842; border-color:rgba(245,200,66,0.25); background:rgba(245,200,66,0.06); }
-        .crav-order-btn { display:inline-flex; align-items:center; gap:0.35rem; padding:0.6rem 1.15rem; background:var(--accent); color:#fff; border-radius:100px; font:700 0.82rem 'DM Sans',sans-serif; text-decoration:none; box-shadow:0 4px 16px rgba(232,82,42,0.28); transition:all 0.18s; flex-shrink:0; }
-        .crav-order-btn:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(232,82,42,0.4); }
-
-        .crav-disclaimer { text-align:center; font-size:0.75rem; color:rgba(255,255,255,0.25); margin-top:1.2rem; font-style:italic; }
-
-        /* Save button */
+        
         .crav-card-actions { display:flex; flex-direction:column; gap:0.4rem; align-items:flex-end; flex-shrink:0; }
-        .crav-save-btn { background:transparent; border:1px solid rgba(255,255,255,0.1); border-radius:100px; padding:0.35rem 0.7rem; font-size:0.82rem; cursor:pointer; transition:all 0.18s; color:rgba(255,255,255,0.4); white-space:nowrap; }
-        .crav-save-btn:hover { border-color:rgba(232,82,42,0.4); background:rgba(232,82,42,0.06); color:var(--accent); }
-        .crav-save-btn.is-saved { border-color:rgba(232,82,42,0.5); background:rgba(232,82,42,0.1); color:var(--accent); }
+        .crav-save-btn { background:transparent; border:1px solid var(--border2); border-radius:100px; padding:0.35rem 0.7rem; font-size:0.82rem; cursor:pointer; color:var(--muted); white-space:nowrap; }
+        .crav-save-btn:hover { border-color:var(--accent); color:var(--accent); }
+        .btn-order { padding:0.45rem 1rem; border-radius:100px; border:1px solid var(--border2); background:transparent; color:var(--text); font:700 0.82rem 'DM Sans',sans-serif; text-decoration:none; transition:all 0.18s; }
+        .btn-order:hover { border-color:var(--accent); background:rgba(232,82,42,0.08); color:var(--accent); }
       `}</style>
 
       <div className="crav-wrap">
-        <div className="crav-search-card">
-          <h2>🛵 Smart Local Search</h2>
-          <p>Tell us what you're craving — we'll find the best spots near you instantly.</p>
-
-          {/* Quick suggestions */}
+        <div style={{ background: 'var(--dash-card-bg)', border: '1px solid var(--border)', borderRadius: '22px', padding: '2rem', backdropFilter: 'blur(20px)', marginBottom: '1.6rem' }}>
+          <div className="craving-head">
+            <h2 className="craving-title">🛵 Smart Local Search</h2>
+            <p className="craving-sub">Tell us what you're craving — we'll find the best spots near you instantly.</p>
+          </div>
+          
           <div className="crav-quick">
             {QUICK.map(q => (
-              <button key={q} className="crav-quick-chip" onClick={() => setCraving(q.split(' ').slice(1).join(' '))}>
+              <button key={q} className="crav-quick-chip" onClick={() => setQuery(q.split(' ').slice(1).join(' '))}>
                 {q}
               </button>
             ))}
           </div>
 
-          <form onSubmit={handleSearch}>
+          <form className="craving-form" onSubmit={handleSearch}>
             <div className="crav-input-wrap">
-              <input
-                className="crav-input"
-                type="text"
-                placeholder="e.g. I want a spicy zinger burger under 800 Rs nearby"
-                value={craving}
-                onChange={e => setCraving(e.target.value)}
-                required
-              />
+              <input className="craving-input" placeholder="e.g. I want a spicy zinger burger under 800 Rs nearby" value={query} onChange={e => setQuery(e.target.value)} />
             </div>
 
-            {/* Requirement 3.3 — area when geolocation unavailable or denied */}
             {needsArea && (
               <div className="crav-input-wrap">
                 <input
-                  className="crav-input"
-                  type="text"
+                  className="craving-input"
                   placeholder="City or area (optional if you already said it in the craving above)"
                   value={area}
                   onChange={(e) => setArea(e.target.value)}
-                  aria-label="City or area"
                 />
               </div>
             )}
 
-            <button
-              className="crav-submit"
-              type="submit"
-              disabled={!canSubmit}
-            >
+            <button className="btn-hunt" type="submit" disabled={!canSubmit}>
               {loading ? 'Scanning local restaurants... 📍' : 'Find My Craving 🍔'}
             </button>
           </form>
         </div>
 
-        {/* Requirement 4.1 — skeleton loaders while in flight */}
         {loading && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <SkeletonCard />
@@ -194,78 +183,77 @@ export default function Cravings() {
             <SkeletonCard />
           </div>
         )}
+        
+        {error && !loading && <div className="craving-error">⚠️ {error}</div>}
 
-        {/* Requirement 6.4 — error state */}
-        {error && !loading && (
-          <div style={{ padding: '1.2rem', borderRadius: '12px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', color: '#fca5a5', textAlign: 'center' }}>
-            ⚠️ {error}
-          </div>
-        )}
-
-        {/* Requirement 4.3 — empty state */}
         {results !== null && results.length === 0 && !loading && (
-          <div style={{ padding: '1.5rem', borderRadius: '12px', background: 'rgba(255,255,255,0.04)', textAlign: 'center', color: 'var(--text-muted)' }}>
+          <div style={{ padding: '1.5rem', borderRadius: '12px', background: 'var(--input-bg)', textAlign: 'center', color: 'var(--muted)' }}>
             <p style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>🍽️</p>
             <p>{emptyMessage}</p>
           </div>
         )}
 
-        {/* Requirement 4.2 — result cards + map (places with coordinates only on map) */}
         {results && results.length > 0 && !loading && (
           <div>
-            <p className="crav-results-label">Top matches near you</p>
+            <p className="crav-results-label">Top matches</p>
             <div className="crav-results">
               {results.map((res) => {
                 const savedEntry = links.find((l) => l.href === res.orderLink);
-                const isSavedResult = !!savedEntry;
+                const isSaved = !!savedEntry;
                 return (
-                <div key={res.id} className="crav-result-card">
-                  <div className="crav-result-body">
-                    <p className="crav-result-item">{res.name}</p>
-                    <p className="crav-result-rest">📍 {res.address}</p>
-                    <div className="crav-result-tags">
-                      {res.rating > 0 && <span className="crav-result-tag stars">★ {res.rating.toFixed(1)}</span>}
-                      {res.distanceKm > 0 && <span className="crav-result-tag">🗺️ {res.distanceKm.toFixed(1)} km</span>}
-                      {res.priceLevel > 0 && <span className="crav-result-tag">{'💰'.repeat(res.priceLevel)}</span>}
+                  <div key={res.id} className="crav-result-card">
+                    <div className="crav-result-body">
+                      <p className="crav-result-item">{res.name}</p>
+                      <p className="crav-result-rest">📍 {res.address}</p>
+                      <div className="crav-result-tags">
+                        {res.rating > 0 && <span className="crav-result-tag stars">★ {res.rating.toFixed(1)}</span>}
+                        {res.distanceKm > 0 && <span className="crav-result-tag">🗺️ {res.distanceKm.toFixed(1)} km</span>}
+                      </div>
+                    </div>
+                    <div className="crav-card-actions">
+                      <button
+                        className={`crav-save-btn${isSaved ? ' is-saved' : ''}`}
+                        title={isSaved ? 'Remove from saved' : 'Save restaurant'}
+                        onClick={() => {
+                          if (isSaved && savedEntry) {
+                            void removeFoodLink(savedEntry.id);
+                          } else {
+                            const q = query.trim() || 'Local search';
+                            void addFoodLink({
+                              restaurant: res.name,
+                              item: q,
+                              area: res.address,
+                              distance: res.distanceKm > 0 ? `${res.distanceKm.toFixed(1)} km` : '—',
+                              price:
+                                res.priceLevel > 0
+                                  ? `Tier ${res.priceLevel}`
+                                  : '—',
+                              emoji: '🛵',
+                              platform: 'Google Maps',
+                              href: res.orderLink,
+                            });
+                          }
+                        }}
+                      >
+                        {isSaved ? '🔖 Saved' : '+ Save'}
+                      </button>
+                      <a
+                        href={res.orderLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-order"
+                        onClick={() => {
+                          void logEvent({
+                            userId: user?.uid ?? 'anonymous',
+                            type: 'click_order',
+                            metadata: { restaurant: res.name, url: res.orderLink }
+                          });
+                        }}
+                      >
+                        Order ↗
+                      </a>
                     </div>
                   </div>
-                  <div className="crav-card-actions">
-                    <button
-                      className={`crav-save-btn${isSavedResult ? ' is-saved' : ''}`}
-                      title={isSavedResult ? 'Remove from saved' : 'Save restaurant'}
-                      onClick={() => {
-                        if (isSavedResult && savedEntry) {
-                          void removeFoodLink(savedEntry.id);
-                        } else {
-                          const q = craving.trim() || 'Local search';
-                          void addFoodLink({
-                            restaurant: res.name,
-                            item: q,
-                            area: res.address,
-                            distance: res.distanceKm > 0 ? `${res.distanceKm.toFixed(1)} km` : '—',
-                            price:
-                              res.priceLevel > 0
-                                ? `Tier ${res.priceLevel}`
-                                : '—',
-                            emoji: '🛵',
-                            platform: 'Google Maps',
-                            href: res.orderLink,
-                          });
-                        }
-                      }}
-                    >
-                      {isSavedResult ? '🔖 Saved' : '+ Save'}
-                    </button>
-                    <a
-                      href={res.orderLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="crav-order-btn"
-                    >
-                      Order ↗
-                    </a>
-                  </div>
-                </div>
                 );
               })}
             </div>
@@ -280,3 +268,4 @@ export default function Cravings() {
     </>
   );
 }
+

@@ -110,7 +110,7 @@ async function parseQuery(query) {
   }
 
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
   const prompt = `
     You are a query parser for a food search app.
@@ -479,7 +479,7 @@ app.post("/api/recommend", async (req, res) => {
 
     // Phase 2: ask Gemini to generate + cite
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
     const prompt = `
 You are MealMind, an expert, cost-conscious culinary AI assistant.
@@ -591,7 +591,7 @@ IMPORTANT RULES:
 - Use emojis naturally but sparingly${prefContext}`;
 
     const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
+      model: "gemini-2.0-flash",
       systemInstruction: systemInstructionContent(systemPrompt),
     });
 

@@ -245,10 +245,10 @@ export default function SavedRecipesPage() {
             {/* Filter tabs */}
             <div className="saved-filters">
               {([
-                { key: 'all',     label: '📚 All',           count: saved.length },
-                { key: 'ai',      label: '🤖 AI Recipes',     count: aiCount },
-                { key: 'online',  label: '🌐 Online Finds',   count: onlineCount },
-                { key: 'craving', label: '🛵 Cravings',       count: cravingCount },
+                { key: 'all', label: '📚 All', count: saved.length },
+                { key: 'ai', label: '🤖 AI Recipes', count: aiCount },
+                { key: 'online', label: '🌐 Online Finds', count: onlineCount },
+                { key: 'craving', label: '🛵 Cravings', count: cravingCount },
               ] as const).map(({ key, label, count }) => (
                 <button
                   key={key}
