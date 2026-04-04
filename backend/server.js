@@ -18,7 +18,6 @@ if (!process.env.GOOGLE_MAPS_API_KEY) {
 const app = express();
 app.use(express.json());
 
-// Allow frontend to make requests.
 const ALLOWED_ORIGINS = [
   "http://localhost:5173",
   "http://localhost:5174",
@@ -436,7 +435,7 @@ app.post("/api/recommend", async (req, res) => {
       return res.status(400).json({ error: "Ingredients are required to find a meal." });
     }
 
-    // ── Phase 1: search the web for real recipes ──────────
+    // Phase 1: search the web for real recipes
     const webRecipes = await searchRecipesOnline(ingredients, goal);
 
     // Build a context block from search results so Gemini can reference them
@@ -447,7 +446,7 @@ app.post("/api/recommend", async (req, res) => {
         ).join("\n\n")
       : "No web search results were available for these ingredients.";
 
-    // ── Phase 2: ask Gemini to generate + cite ────────────
+    // Phase 2: ask Gemini to generate + cite
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
@@ -502,6 +501,84 @@ Respond EXACTLY in valid JSON. Do NOT use Markdown code fences. Use this schema:
     console.error("Backend AI Error:", error);
     const errorMessage = error.message || "Unknown error occurred while connecting to Gemini.";
     return res.status(500).json({ error: `Failed to connect to the AI Chef: ${errorMessage}` });
+  }
+});
+
+// ─────────────────────────────────────────────────────────
+// POST /api/chat — MealMind Chatbot
+// ─────────────────────────────────────────────────────────
+app.post("/api/chat", async (req, res) => {
+  try {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: "Missing GEMINI_API_KEY in the backend .env" });
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const { messages, userPreferences } = req.body;
+
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      return res.status(400).json({ error: "messages array is required." });
+    }
+
+    // Build preferences context block
+    let prefContext = "";
+    if (userPreferences) {
+      const p = userPreferences;
+      const lines = [];
+      if (p.cuisines?.length)   lines.push(`- Favourite cuisines: ${p.cuisines.join(", ")}`);
+      if (p.spice)              lines.push(`- Spice level: ${p.spice}`);
+      if (p.budget)             lines.push(`- Default budget: ${p.budget}`);
+      if (p.skill)              lines.push(`- Cooking skill: ${p.skill}`);
+      if (p.goal)               lines.push(`- Health goal: ${p.goal}`);
+      if (p.allergens?.length)  lines.push(`- Allergies/intolerances: ${p.allergens.join(", ")}`);
+      if (p.diets?.length)      lines.push(`- Dietary restrictions: ${p.diets.join(", ")}`);
+      if (p.customPreferences)  lines.push(`- Additional preferences: ${p.customPreferences}`);
+      if (lines.length) {
+        prefContext = `\n\nUSER PROFILE (use this as context for all suggestions):\n${lines.join("\n")}`;
+      }
+    }
+
+    const systemPrompt = `You are MealMind's AI food assistant — a friendly, knowledgeable, and practical culinary companion built into the MealMind app.
+
+MealMind is a smart meal planning app for Pakistani users (students, young professionals, families) that helps with:
+- Fridge-first cooking: what to cook with what you have
+- Budget-conscious meal planning (prices in PKR)
+- Nutritional goals (weight loss, muscle gain, etc.)
+- Cravings and food ordering suggestions
+- Dietary restrictions and allergen management
+- Recipe discovery and saving
+
+Your personality: warm, practical, concise. You speak like a helpful foodie friend — not a robot. You can suggest specific dishes, ask clarifying questions, give cooking tips, help with ingredient substitutions, and suggest what to order when the user doesn't want to cook.
+
+IMPORTANT RULES:
+- Always keep budget context in PKR if the user hasn't specified
+- Respect all stated allergies and dietary restrictions strictly — never suggest food containing them
+- Keep responses focused on food, meals, cooking, nutrition, and meal planning
+- If asked something completely unrelated to food/meals, politely redirect
+- Be concise — 2-4 short paragraphs max unless listing steps or ingredients
+- Use emojis naturally but sparingly${prefContext}`;
+
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+    const chat = model.startChat({
+      history: messages.slice(0, -1).map(m => ({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }],
+      })),
+      systemInstruction: systemPrompt,
+    });
+
+    const lastMessage = messages[messages.length - 1];
+    const result = await chat.sendMessage(lastMessage.content);
+    const responseText = result.response.text();
+
+    return res.status(200).json({ reply: responseText });
+
+  } catch (error) {
+    console.error("Chatbot AI Error:", error);
+    const errorMessage = error.message || "Unknown error occurred.";
+    return res.status(500).json({ error: `Chat failed: ${errorMessage}` });
   }
 });
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { usePreferences } from '../context/PreferencesContext';
 import { db } from '../lib/firebase';
 import {
   DEFAULT_DIETARY,
@@ -25,6 +26,8 @@ type Tab = 'profile' | 'preferences' | 'dietary';
 
 export default function ProfilePage() {
   const { user } = useAuth();
+  const { setPreferences } = usePreferences();
+
   const [activeTab, setActiveTab] = useState<Tab>('profile');
   const [profileLoading, setProfileLoading] = useState(true);
   const [prefSaving, setPrefSaving] = useState(false);
@@ -37,6 +40,7 @@ export default function ProfilePage() {
   const [selectedSkill, setSelectedSkill] = useState<string>(DEFAULT_PREFERENCES.skill);
   const [selectedGoal, setSelectedGoal] = useState<string>(DEFAULT_PREFERENCES.goal);
   const [selectedSpice, setSelectedSpice] = useState<string>(DEFAULT_PREFERENCES.spice);
+  const [customPreferences, setCustomPreferences] = useState<string>(DEFAULT_PREFERENCES.customPreferences ?? '');
   const [selectedAllergens, setSelectedAllergens] = useState<string[]>(DEFAULT_DIETARY.allergens);
   const [selectedDiets, setSelectedDiets] = useState<string[]>(DEFAULT_DIETARY.diets);
 
@@ -48,15 +52,26 @@ export default function ProfilePage() {
     let cancelled = false;
     (async () => {
       try {
-        const { preferences, dietary } = await loadUserProfile(user.uid);
+        const { preferences: loadedPrefs, dietary } = await loadUserProfile(user.uid);
         if (cancelled) return;
-        setSelectedCuisines(preferences.cuisines);
-        setSelectedSpice(preferences.spice);
-        setSelectedBudget(preferences.budget);
-        setSelectedSkill(preferences.skill);
-        setSelectedGoal(preferences.goal);
+        setSelectedCuisines(loadedPrefs.cuisines);
+        setSelectedSpice(loadedPrefs.spice);
+        setSelectedBudget(loadedPrefs.budget);
+        setSelectedSkill(loadedPrefs.skill);
+        setSelectedGoal(loadedPrefs.goal);
+        setCustomPreferences(loadedPrefs.customPreferences ?? '');
         setSelectedAllergens(dietary.allergens);
         setSelectedDiets(dietary.diets);
+        setPreferences({
+          cuisines: loadedPrefs.cuisines,
+          spice: loadedPrefs.spice,
+          budget: loadedPrefs.budget,
+          skill: loadedPrefs.skill,
+          goal: loadedPrefs.goal,
+          allergens: dietary.allergens,
+          diets: dietary.diets,
+          customPreferences: loadedPrefs.customPreferences ?? '',
+        });
       } catch (e) {
         console.error('[MealMind] loadUserProfile:', e);
       } finally {
@@ -66,7 +81,7 @@ export default function ProfilePage() {
     return () => {
       cancelled = true;
     };
-  }, [user?.uid]);
+  }, [user?.uid, setPreferences]);
 
   const buildPreferences = (): UserPreferences => ({
     cuisines: selectedCuisines,
@@ -74,6 +89,7 @@ export default function ProfilePage() {
     budget: selectedBudget,
     skill: selectedSkill,
     goal: selectedGoal,
+    customPreferences,
   });
 
   const buildDietary = (): UserDietary => ({
@@ -89,8 +105,20 @@ export default function ProfilePage() {
     setPrefSaving(true);
     setPrefMessage(null);
     try {
-      await saveUserPreferences(user.uid, buildPreferences());
-      setPrefMessage('Saved to your account.');
+      const prefs = buildPreferences();
+      await saveUserPreferences(user.uid, prefs);
+      setPrefMessage('Saved to your account. Chatbot preferences updated.');
+      const dietary = buildDietary();
+      setPreferences({
+        cuisines: prefs.cuisines,
+        spice: prefs.spice,
+        budget: prefs.budget,
+        skill: prefs.skill,
+        goal: prefs.goal,
+        allergens: dietary.allergens,
+        diets: dietary.diets,
+        customPreferences: prefs.customPreferences ?? '',
+      });
     } catch (e) {
       console.error(e);
       setPrefMessage('Could not save. Try again.');
@@ -107,8 +135,20 @@ export default function ProfilePage() {
     setDietSaving(true);
     setDietMessage(null);
     try {
-      await saveUserDietary(user.uid, buildDietary());
-      setDietMessage('Saved to your account.');
+      const dietary = buildDietary();
+      await saveUserDietary(user.uid, dietary);
+      setDietMessage('Saved to your account. Chatbot restrictions updated.');
+      const prefs = buildPreferences();
+      setPreferences({
+        cuisines: prefs.cuisines,
+        spice: prefs.spice,
+        budget: prefs.budget,
+        skill: prefs.skill,
+        goal: prefs.goal,
+        allergens: dietary.allergens,
+        diets: dietary.diets,
+        customPreferences: prefs.customPreferences ?? '',
+      });
     } catch (e) {
       console.error(e);
       setDietMessage('Could not save. Try again.');
@@ -178,6 +218,30 @@ export default function ProfilePage() {
         .prof-pill:hover { border-color: rgba(232,82,42,0.4); color: var(--text); }
         .prof-pill.on { border-color: var(--accent); background: rgba(232,82,42,0.12); color: var(--text); box-shadow: 0 2px 10px rgba(232,82,42,0.15); }
 
+        /* ── Custom text input ── */
+        .prof-custom-textarea {
+          width: 100%;
+          padding: 0.8rem 1rem;
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 13px;
+          color: #f2ede4;
+          font: 0.88rem 'DM Sans', sans-serif;
+          outline: none;
+          resize: vertical;
+          min-height: 80px;
+          line-height: 1.55;
+          transition: border-color 0.2s, box-shadow 0.2s;
+          box-sizing: border-box;
+        }
+        .prof-custom-textarea::placeholder { color: rgba(255,255,255,0.22); }
+        .prof-custom-textarea:focus {
+          border-color: rgba(232,82,42,0.5);
+          background: rgba(232,82,42,0.04);
+          box-shadow: 0 0 0 3px rgba(232,82,42,0.1);
+        }
+        .prof-custom-hint { font-size: 0.73rem; color: rgba(255,255,255,0.3); margin-top: 0.4rem; line-height: 1.4; }
+
         /* ── Action buttons ── */
         .prof-btn-row { display: flex; flex-wrap: wrap; gap: 0.6rem; }
         .prof-btn-ghost { font: 500 0.84rem 'DM Sans', sans-serif; cursor: pointer; padding: 0.5rem 1.05rem; border-radius: 100px; border: 1px solid rgba(255,255,255,0.13); background: transparent; color: var(--text); transition: all 0.18s; }
@@ -185,6 +249,7 @@ export default function ProfilePage() {
         .prof-btn-ghost:disabled { opacity: 0.45; cursor: not-allowed; }
         .prof-btn-accent { font: 700 0.88rem 'DM Sans', sans-serif; cursor: pointer; padding: 0.6rem 1.4rem; border-radius: 100px; border: none; background: var(--accent); color: #fff; box-shadow: 0 4px 18px rgba(232,82,42,0.3); transition: all 0.2s; }
         .prof-btn-accent:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(232,82,42,0.4); }
+        .prof-btn-accent.saved { background: #2ec27e; box-shadow: 0 4px 18px rgba(46,194,126,0.3); }
         .prof-btn-danger { font: 500 0.84rem 'DM Sans', sans-serif; cursor: pointer; padding: 0.5rem 1.05rem; border-radius: 100px; border: 1px solid rgba(255,80,80,0.35); background: rgba(255,80,80,0.07); color: #ff8a8a; transition: all 0.18s; }
         .prof-btn-danger:hover:not(:disabled) { background: rgba(255,80,80,0.13); }
         .prof-btn-danger:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -192,12 +257,24 @@ export default function ProfilePage() {
         /* ── Disclaimer ── */
         .prof-disclaimer { font-size: 0.78rem; color: var(--muted2); line-height: 1.55; padding: 0.8rem 1rem; border-radius: 12px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); margin-top: 1.2rem; }
 
-        /* ── Spice indicator ── */
-        .prof-spice-emoji { font-size: 1rem; }
-
         /* ── Save row ── */
         .prof-save-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.8rem; padding-top: 1.4rem; border-top: 1px solid rgba(255,255,255,0.06); margin-top: 1.6rem; }
         .prof-save-hint { font-size: 0.8rem; color: var(--muted2); }
+
+        /* ── Chat context note ── */
+        .prof-chat-note {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.5rem;
+          padding: 0.7rem 0.9rem;
+          background: rgba(232,82,42,0.06);
+          border: 1px solid rgba(232,82,42,0.18);
+          border-radius: 12px;
+          font-size: 0.76rem;
+          color: rgba(232,82,42,0.8);
+          line-height: 1.45;
+          margin-bottom: 1.6rem;
+        }
 
         @media (max-width: 600px) {
           .prof-header { flex-direction: column; text-align: center; }
@@ -292,6 +369,9 @@ export default function ProfilePage() {
         {/* ── Tab: Preferences ── */}
         {activeTab === 'preferences' && (
           <div className="prof-panel" role="tabpanel">
+            <div className="prof-chat-note">
+              💬 Your preferences are used as context by the MealMind AI chatbot. Save them to personalise all suggestions.
+            </div>
             {profileLoading && (
               <p style={{ color: 'var(--muted)', fontSize: '0.88rem', marginBottom: '1rem' }}>Loading your preferences…</p>
             )}
@@ -315,7 +395,7 @@ export default function ProfilePage() {
                   <button
                     key={level}
                     className={`prof-pill${selectedSpice === level ? ' on' : ''}`}
-                    onClick={() => setSelectedSpice(level)}
+                    onClick={() => setSelectedSpice(prev => prev === level ? '' : level)}
                   >
                     {level === 'Mild' ? '🌿' : level === 'Medium' ? '🌶️' : level === 'Hot' ? '🔥' : '💀'} {level}
                   </button>
@@ -330,7 +410,7 @@ export default function ProfilePage() {
                   <button
                     key={b}
                     className={`prof-pill${selectedBudget === b ? ' on' : ''}`}
-                    onClick={() => setSelectedBudget(b)}
+                    onClick={() => setSelectedBudget(prev => prev === b ? '' : b)}
                   >{b}</button>
                 ))}
               </div>
@@ -343,7 +423,7 @@ export default function ProfilePage() {
                   <button
                     key={s}
                     className={`prof-pill${selectedSkill === s ? ' on' : ''}`}
-                    onClick={() => setSelectedSkill(s)}
+                    onClick={() => setSelectedSkill(prev => prev === s ? '' : s)}
                   >{s}</button>
                 ))}
               </div>
@@ -356,15 +436,29 @@ export default function ProfilePage() {
                   <button
                     key={g}
                     className={`prof-pill${selectedGoal === g ? ' on' : ''}`}
-                    onClick={() => setSelectedGoal(g)}
+                    onClick={() => setSelectedGoal(prev => prev === g ? '' : g)}
                   >{g}</button>
                 ))}
               </div>
             </div>
 
+            <div className="prof-section">
+              <p className="prof-section-label">Additional preferences (custom)</p>
+              <textarea
+                className="prof-custom-textarea"
+                placeholder="Describe anything else — e.g. &quot;I prefer quick meals under 20 min&quot;, &quot;I love garlic and ginger&quot;, &quot;avoid oily food&quot;, &quot;student in hostel with limited equipment&quot;..."
+                value={customPreferences}
+                onChange={e => setCustomPreferences(e.target.value)}
+                rows={3}
+              />
+              <p className="prof-custom-hint">
+                This text is sent directly to the AI chatbot as extra context. Be as specific as you want.
+              </p>
+            </div>
+
             <div className="prof-save-row">
               <span className="prof-save-hint">
-                {prefMessage ?? 'Stored in Firestore under your account.'}
+                {prefMessage ?? 'Stored in Firestore under your account. The chatbot reads these on save.'}
                 {!db && ' Configure Firebase for cloud sync.'}
               </span>
               <button
@@ -381,6 +475,9 @@ export default function ProfilePage() {
         {/* ── Tab: Dietary & Allergies ── */}
         {activeTab === 'dietary' && (
           <div className="prof-panel" role="tabpanel">
+            <div className="prof-chat-note">
+              💬 Saved restrictions are strictly respected by the MealMind AI chatbot — it will never suggest food that conflicts with them.
+            </div>
             {profileLoading && (
               <p style={{ color: 'var(--muted)', fontSize: '0.88rem', marginBottom: '1rem' }}>Loading your restrictions…</p>
             )}
@@ -416,7 +513,7 @@ export default function ProfilePage() {
 
             <div className="prof-save-row">
               <span className="prof-save-hint">
-                {dietMessage ?? 'Hard constraints — saved to your account.'}
+                {dietMessage ?? 'Hard constraints — saved to your account and applied to the chatbot.'}
                 {!db && ' Configure Firebase for cloud sync.'}
               </span>
               <button
