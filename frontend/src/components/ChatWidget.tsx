@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from 'react';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { usePreferences } from '../context/PreferencesContext';
 
 interface Message {
@@ -15,41 +14,26 @@ const SUGGESTED_PROMPTS = [
   "I'm craving desi comfort food 🍛",
 ];
 
-function buildSystemPrompt(preferences: ReturnType<typeof usePreferences>['preferences']): string {
-  const p = preferences;
-  const lines: string[] = [];
-  if (p.cuisines?.length)   lines.push(`- Favourite cuisines: ${p.cuisines.join(', ')}`);
-  if (p.spice)              lines.push(`- Spice level: ${p.spice}`);
-  if (p.budget)             lines.push(`- Default budget: ${p.budget}`);
-  if (p.skill)              lines.push(`- Cooking skill: ${p.skill}`);
-  if (p.goal)               lines.push(`- Health goal: ${p.goal}`);
-  if (p.allergens?.length)  lines.push(`- Allergies/intolerances: ${p.allergens.join(', ')}`);
-  if (p.diets?.length)      lines.push(`- Dietary restrictions: ${p.diets.join(', ')}`);
-  if (p.customPreferences)  lines.push(`- Additional preferences: ${p.customPreferences}`);
+function httpErrorHint(status: number): string {
+  if (status === 502 || status === 503) return 'The assistant is temporarily unavailable. Try again soon.';
+  if (status === 429) return 'Too many requests. Wait a moment and try again.';
+  if (status === 400) return 'That request could not be sent. Check your message and try again.';
+  return 'Something went wrong. Please try again.';
+}
 
-  const prefContext = lines.length
-    ? `\n\nUSER PROFILE (use this as context for all suggestions):\n${lines.join('\n')}`
-    : '';
-
-  return `You are MealMind's AI food assistant — a friendly, knowledgeable, and practical culinary companion built into the MealMind app.
-
-MealMind is a smart meal planning app for Pakistani users (students, young professionals, families) that helps with:
-- Fridge-first cooking: what to cook with what you have
-- Budget-conscious meal planning (prices in PKR)
-- Nutritional goals (weight loss, muscle gain, etc.)
-- Cravings and food ordering suggestions
-- Dietary restrictions and allergen management
-- Recipe discovery and saving
-
-Your personality: warm, practical, concise. You speak like a helpful foodie friend — not a robot. You can suggest specific dishes, ask clarifying questions, give cooking tips, help with ingredient substitutions, and suggest what to order when the user doesn't want to cook.
-
-IMPORTANT RULES:
-- Always keep budget context in PKR if the user hasn't specified
-- Respect all stated allergies and dietary restrictions strictly — never suggest food containing them
-- Keep responses focused on food, meals, cooking, nutrition, and meal planning
-- If asked something completely unrelated to food/meals, politely redirect
-- Be concise — 2-4 short paragraphs max unless listing steps or ingredients
-- Use emojis naturally but sparingly${prefContext}`;
+/** Keep UI copy short; hide leaked SDK / API stack text. */
+function formatChatError(err: unknown): string {
+  const msg = err instanceof Error ? err.message.trim() : String(err);
+  if (!msg) return 'Something went wrong. Please try again.';
+  if (
+    msg.length > 240 ||
+    /GoogleGenerativeAI|generativelanguage\.googleapis|type\.googleapis\.com|fieldViolations|Bad Request\] Invalid/i.test(
+      msg
+    )
+  ) {
+    return 'Something went wrong. Please try again.';
+  }
+  return msg;
 }
 
 export default function ChatWidget() {
@@ -91,28 +75,27 @@ export default function ChatWidget() {
     setError(null);
 
     try {
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-      if (!apiKey) throw new Error('VITE_GEMINI_API_KEY is not set in frontend/.env.local');
-
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({
-        model: 'gemini-2.5-flash',
-        systemInstruction: buildSystemPrompt(preferences),
+      const apiBase = import.meta.env.VITE_API_URL ?? '';
+      const res = await fetch(`${apiBase}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
+          userPreferences: preferences,
+        }),
       });
-
-      // Build chat history (everything except the last user message)
-      const history = newMessages.slice(0, -1).map(m => ({
-        role: m.role === 'assistant' ? 'model' as const : 'user' as const,
-        parts: [{ text: m.content }],
-      }));
-
-      const chat = model.startChat({ history });
-      const result = await chat.sendMessage(trimmed);
-      const reply = result.response.text();
-
-      setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
+      const data = (await res.json().catch(() => ({}))) as { reply?: string; error?: string };
+      if (!res.ok) {
+        const fromServer = typeof data.error === 'string' ? data.error.trim() : '';
+        throw new Error(fromServer || httpErrorHint(res.status));
+      }
+      if (typeof data.reply !== 'string') {
+        throw new Error('Something went wrong. Please try again.');
+      }
+      const reply = data.reply;
+      setMessages((prev) => [...prev, { role: 'assistant', content: reply }]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+      setError(formatChatError(err));
     } finally {
       setIsLoading(false);
     }
@@ -508,9 +491,7 @@ export default function ChatWidget() {
                     <div className="cw-dot" />
                   </div>
                 )}
-                {error && (
-                  <div className="cw-error">⚠️ {error}</div>
-                )}
+                {error && <div className="cw-error">{error}</div>}
                 <div ref={messagesEndRef} />
               </>
             )}

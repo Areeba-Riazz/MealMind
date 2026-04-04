@@ -48,7 +48,7 @@ cp .env.example .env.local
 
 Edit `frontend/.env.local` with your Firebase web app keys from the Firebase console. If Firebase vars are missing, the UI still runs but auth and Firestore features are disabled.
 
-- `VITE_GEMINI_API_KEY` — optional; only if you use client-side Gemini usage in the bundled chat widget. Prefer restricting this key by HTTP referrer in Google Cloud. For production, routing chat only through `POST /api/chat` avoids exposing server keys.
+The **chat widget** calls `POST /api/chat` on the backend only; the Gemini key stays in `backend/.env` (`GEMINI_API_KEY`) and is never bundled into the frontend.
 
 ### Firestore rules
 
@@ -102,7 +102,7 @@ Open **http://localhost:5173** (not port 3000).
 - **Only commit** `*.env.example` files with **empty** placeholders (no real keys).
 - Root `.gitignore` and `frontend/` / `backend/` ignore files cover `.env` and `*.local`.
 - If a key was ever committed, **rotate it** in Google Cloud / Firebase / AI Studio and remove it from git history.
-- Restrict Gemini and Maps keys in Google Cloud (HTTP referrers, Android/iOS apps, or IP) for production.
+- **Gemini** is used only on the server (`GEMINI_API_KEY`); restrict that key by server IP or disable browser key usage. **Maps** keys used from the backend for Cravings should be restricted similarly.
 
 ## License
 
