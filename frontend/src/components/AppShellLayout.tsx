@@ -3,13 +3,13 @@ import Sidebar from './Sidebar';
 import ChatWidget from './ChatWidget';
 
 const PAGE_TITLES: Record<string, { title: string; sub: string }> = {
-  '/dashboard':  { title: 'Dashboard',          sub: 'Your meal command center'         },
-  '/demo':       { title: 'AI Chef',             sub: 'Generate a recipe from your fridge' },
-  '/cravings':   { title: 'Cravings',            sub: 'Find the best food near you'      },
-  '/saved':      { title: 'Saved Recipes',       sub: 'Your personal recipe collection'  },
-  '/food-links': { title: 'Food Links',          sub: 'Bookmarked restaurants & orders'  },
-  '/profile':    { title: 'Profile',             sub: 'Account, preferences & dietary'   },
-  '/onboarding': { title: 'Onboarding',          sub: 'Finish your profile setup'        },
+  '/dashboard':    { title: 'Dashboard',          sub: 'Your meal command center'         },
+  '/demo':         { title: 'AI Chef',             sub: 'Generate a recipe from your fridge' },
+  '/cravings':     { title: 'Cravings',            sub: 'Find the best food near you'      },
+  '/meal-planner': { title: 'Meal Planner',        sub: 'Plan meals by week and meal type' },
+  '/saved':        { title: 'Saved Recipes',       sub: 'Your personal recipe collection'  },
+  '/food-links':   { title: 'Food Links',          sub: 'Bookmarked restaurants & orders'  },
+  '/profile':      { title: 'Profile',             sub: 'Account, preferences & dietary'   },
 };
 
 export default function AppShellLayout() {

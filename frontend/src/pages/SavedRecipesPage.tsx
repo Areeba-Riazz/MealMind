@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useSavedRecipes } from '../context/SavedRecipesContext';
 import type { SavedRecipe } from '../context/SavedRecipesContext';
+import MacroBadges from '../components/MacroBadges';
+import { parseNutrition } from '../types/recipeNutrition';
 
 function formatDate(iso: string) {
   try {
@@ -13,6 +15,7 @@ function formatDate(iso: string) {
 
 function AiRecipeCard({ recipe, onRemove }: { recipe: SavedRecipe; onRemove: () => void }) {
   const [expanded, setExpanded] = useState(false);
+  const nutrition = parseNutrition(recipe.nutrition);
 
   return (
     <div className="saved-card ai-card">
@@ -28,6 +31,7 @@ function AiRecipeCard({ recipe, onRemove }: { recipe: SavedRecipe; onRemove: () 
               <span className="saved-card-tag">📋 {recipe.instructions.length} steps</span>
             )}
           </div>
+          {nutrition && <MacroBadges nutrition={nutrition} compact />}
         </div>
         <div className="saved-card-actions">
           <button className="saved-btn" onClick={() => setExpanded(p => !p)}>
@@ -105,13 +109,54 @@ function OnlineRecipeCard({ recipe, onRemove }: { recipe: SavedRecipe; onRemove:
   );
 }
 
+function CravingCard({ recipe, onRemove }: { recipe: SavedRecipe; onRemove: () => void }) {
+  return (
+    <div className="saved-card craving-card">
+      <div className="saved-card-top">
+        <span className="saved-card-emoji">🛵</span>
+        <div className="saved-card-body">
+          <p className="saved-card-title">{recipe.title}</p>
+          <div className="saved-card-meta">
+            <span className="saved-card-tag craving-tag">📍 Local Find</span>
+            {recipe.rating != null && recipe.rating > 0 && (
+              <span className="saved-card-tag stars-tag">★ {recipe.rating.toFixed(1)}</span>
+            )}
+            {recipe.priceLevel != null && recipe.priceLevel > 0 && (
+              <span className="saved-card-tag">{'💰'.repeat(recipe.priceLevel)}</span>
+            )}
+            {recipe.distanceKm != null && recipe.distanceKm > 0 && (
+              <span className="saved-card-tag">🗺️ {recipe.distanceKm.toFixed(1)} km</span>
+            )}
+            <span className="saved-card-tag">🗓 {formatDate(recipe.savedAt)}</span>
+          </div>
+          {recipe.address && <p className="saved-card-snippet">📍 {recipe.address}</p>}
+        </div>
+        <div className="saved-card-actions">
+          {recipe.orderLink && (
+            <a
+              href={recipe.orderLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="saved-btn craving-order-btn"
+            >
+              Order ↗
+            </a>
+          )}
+          <button className="saved-btn danger" onClick={onRemove}>Remove</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function SavedRecipesPage() {
   const { saved, removeRecipe } = useSavedRecipes();
-  const [filter, setFilter] = useState<'all' | 'ai' | 'online'>('all');
+  const [filter, setFilter] = useState<'all' | 'ai' | 'online' | 'craving'>('all');
 
   const visible = saved.filter(r => filter === 'all' || r.type === filter);
   const aiCount = saved.filter(r => r.type === 'ai').length;
   const onlineCount = saved.filter(r => r.type === 'online').length;
+  const cravingCount = saved.filter(r => r.type === 'craving').length;
 
   return (
     <>
@@ -142,6 +187,7 @@ export default function SavedRecipesPage() {
         .saved-card:hover { border-color:rgba(255,255,255,0.12); }
         .saved-card.ai-card:hover { border-color:rgba(232,82,42,0.25); }
         .saved-card.online-card:hover { border-color:rgba(100,180,255,0.2); }
+        .saved-card.craving-card:hover { border-color:rgba(245,200,66,0.25); }
 
         .saved-card-top { display:flex; align-items:flex-start; gap:1.1rem; padding:1.3rem 1.5rem; }
         .saved-card-emoji { font-size:2rem; flex-shrink:0; margin-top:0.1rem; }
@@ -150,6 +196,8 @@ export default function SavedRecipesPage() {
         .saved-card-meta { display:flex; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.35rem; }
         .saved-card-tag { display:inline-flex; align-items:center; gap:0.25rem; font-size:0.7rem; font-weight:600; color:rgba(255,255,255,0.4); background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:100px; padding:0.18rem 0.55rem; }
         .saved-card-tag.fallback-tag { color:rgba(245,200,66,0.7); border-color:rgba(245,200,66,0.2); background:rgba(245,200,66,0.06); }
+        .saved-card-tag.craving-tag { color:rgba(245,200,66,0.65); border-color:rgba(245,200,66,0.18); background:rgba(245,200,66,0.05); }
+        .saved-card-tag.stars-tag { color:#f5c842; border-color:rgba(245,200,66,0.25); background:rgba(245,200,66,0.06); }
         .saved-card-snippet { font-size:0.77rem; color:rgba(255,255,255,0.3); line-height:1.5; margin:0; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
 
         /* Actions */
@@ -159,6 +207,8 @@ export default function SavedRecipesPage() {
         .saved-btn.danger:hover { border-color:rgba(255,80,80,0.4); color:#ff8a8a; background:rgba(255,80,80,0.06); }
         .saved-btn.link-btn { border-color:rgba(100,180,255,0.25); color:rgba(100,180,255,0.7); }
         .saved-btn.link-btn:hover { border-color:rgba(100,180,255,0.5); color:rgba(150,210,255,0.9); background:rgba(100,180,255,0.07); }
+        .saved-btn.craving-order-btn { border-color:rgba(245,200,66,0.25); color:rgba(245,200,66,0.7); }
+        .saved-btn.craving-order-btn:hover { border-color:rgba(245,200,66,0.5); color:rgba(245,200,66,0.95); background:rgba(245,200,66,0.07); }
 
         /* Expanded steps panel */
         .saved-steps-panel { border-top:1px solid rgba(255,255,255,0.06); padding:1.2rem 1.5rem 1.4rem; animation:sfade 0.25s ease both; }
@@ -186,27 +236,29 @@ export default function SavedRecipesPage() {
         {saved.length === 0 ? (
           <div className="saved-empty">
             <div className="saved-empty-emoji">📖</div>
-            <h3>No saved recipes yet</h3>
-            <p>Generate a recipe with AI Chef and hit the Save button to keep it here.</p>
+            <h3>Nothing saved yet</h3>
+            <p>Generate a recipe with AI Chef or save a restaurant from Cravings to keep it here.</p>
             <Link to="/demo">Go to AI Chef 👨‍🍳</Link>
           </div>
         ) : (
           <>
             {/* Filter tabs */}
             <div className="saved-filters">
-              {(['all', 'ai', 'online'] as const).map(f => {
-                const count = f === 'all' ? saved.length : f === 'ai' ? aiCount : onlineCount;
-                return (
-                  <button
-                    key={f}
-                    className={`saved-filter-btn${filter === f ? ' active' : ''}`}
-                    onClick={() => setFilter(f)}
-                  >
-                    {f === 'all' ? '📚 All' : f === 'ai' ? '🤖 AI Recipes' : '🌐 Online Finds'}
-                    <span className="saved-filter-count">{count}</span>
-                  </button>
-                );
-              })}
+              {([
+                { key: 'all',     label: '📚 All',           count: saved.length },
+                { key: 'ai',      label: '🤖 AI Recipes',     count: aiCount },
+                { key: 'online',  label: '🌐 Online Finds',   count: onlineCount },
+                { key: 'craving', label: '🛵 Cravings',       count: cravingCount },
+              ] as const).map(({ key, label, count }) => (
+                <button
+                  key={key}
+                  className={`saved-filter-btn${filter === key ? ' active' : ''}`}
+                  onClick={() => setFilter(key)}
+                >
+                  {label}
+                  <span className="saved-filter-count">{count}</span>
+                </button>
+              ))}
             </div>
 
             <div className="saved-list">
@@ -215,16 +267,16 @@ export default function SavedRecipesPage() {
                   Nothing saved in this category yet.
                 </p>
               ) : (
-                visible.map(r =>
-                  r.type === 'ai'
-                    ? <AiRecipeCard key={r.id} recipe={r} onRemove={() => removeRecipe(r.id)} />
-                    : <OnlineRecipeCard key={r.id} recipe={r} onRemove={() => removeRecipe(r.id)} />
-                )
+                visible.map(r => {
+                  if (r.type === 'ai') return <AiRecipeCard key={r.id} recipe={r} onRemove={() => removeRecipe(r.id)} />;
+                  if (r.type === 'online') return <OnlineRecipeCard key={r.id} recipe={r} onRemove={() => removeRecipe(r.id)} />;
+                  return <CravingCard key={r.id} recipe={r} onRemove={() => removeRecipe(r.id)} />;
+                })
               )}
             </div>
 
             <div className="saved-cta-row">
-              <p>Want more recipes?</p>
+              <p>Want more?</p>
               <Link to="/demo">Generate with AI Chef →</Link>
             </div>
           </>

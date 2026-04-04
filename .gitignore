@@ -2,7 +2,6 @@
 node_modules/
 venv/
 env/
-.env
 __pycache__/
 *.pyc
 
@@ -26,6 +25,9 @@ build/
 *.log
 npm-debug.log*
 
-# Misc
+# Misc — env files with secrets (never commit real keys)
+.env
 .env.local
 .env.*.local
+**/.env
+!**/.env.example

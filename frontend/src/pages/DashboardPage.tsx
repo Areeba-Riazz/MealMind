@@ -1,24 +1,61 @@
 import { Link } from 'react-router-dom';
+import { useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useSavedRecipes } from '../context/SavedRecipesContext';
+import { useFoodLinks } from '../context/FoodLinksContext';
+import { usePlannedMealsThisWeek } from '../hooks/usePlannedMealsThisWeek';
 
 const QUICK_ACTIONS = [
-  { to: '/demo',      label: 'AI Chef',       emoji: '👨‍🍳', desc: 'Get a recipe from your fridge',   accent: true  },
-  { to: '/cravings',  label: 'Cravings',      emoji: '🛵',  desc: 'Order the perfect meal',           accent: false },
-  { to: '/saved',     label: 'Saved',         emoji: '📖',  desc: 'Your saved recipes',               accent: false },
-  { to: '/food-links',label: 'Food Links',    emoji: '🔗',  desc: 'Curated restaurant links',         accent: false },
-  { to: '/profile',   label: 'Profile',       emoji: '⚙️',  desc: 'Preferences & dietary',            accent: false },
-  { to: '/onboarding',label: 'Onboarding',    emoji: '✨',  desc: 'Finish your setup',                accent: false },
+  { to: '/demo',         label: 'AI Chef',       emoji: '👨‍🍳', desc: 'Get a recipe from your fridge',   accent: true  },
+  { to: '/cravings',     label: 'Cravings',      emoji: '🛵',  desc: 'Order the perfect meal',           accent: false },
+  { to: '/meal-planner', label: 'Meal Planner',  emoji: '📅',  desc: 'Plan your week',                   accent: false },
+  { to: '/saved',        label: 'Saved',         emoji: '📖',  desc: 'Your saved recipes',               accent: false },
+  { to: '/food-links',   label: 'Food Links',    emoji: '🔗',  desc: 'Curated restaurant links',         accent: false },
+  { to: '/profile',      label: 'Profile',       emoji: '⚙️',  desc: 'Preferences & dietary',            accent: false },
 ] as const;
-
-const STATS = [
-  { label: 'Meals this week', value: '0',   sub: 'Plan your first meal →', color: 'var(--accent)',  to: '/demo' },
-  { label: 'Saved recipes',   value: '3',   sub: 'View collection →',      color: 'var(--accent2)', to: '/saved' },
-  { label: 'Profile',         value: '62%', sub: 'Complete your profile →', color: 'var(--accent3)', to: '/profile' },
-];
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const { saved } = useSavedRecipes();
+  const { links } = useFoodLinks();
+  const plannedThisWeek = usePlannedMealsThisWeek();
+
   const firstName = user?.displayName?.split(' ')[0] ?? user?.email?.split('@')[0] ?? 'there';
+
+  const savedRecipeCount = useMemo(
+    () => saved.filter((r) => r.type === 'ai' || r.type === 'online').length,
+    [saved]
+  );
+
+  const stats = useMemo(
+    () => [
+      {
+        label: 'Planned this week',
+        value: String(plannedThisWeek),
+        sub:
+          plannedThisWeek === 0
+            ? 'Open meal planner →'
+            : 'View or edit your plan →',
+        color: 'var(--accent)',
+        to: '/meal-planner',
+      },
+      {
+        label: 'Saved recipes',
+        value: String(savedRecipeCount),
+        sub: savedRecipeCount === 0 ? 'Generate with AI Chef →' : 'View collection →',
+        color: 'var(--accent2)',
+        to: '/saved',
+      },
+      {
+        label: 'Food links',
+        value: String(links.length),
+        sub: links.length === 0 ? 'Save from Cravings →' : 'Manage bookmarks →',
+        color: 'var(--accent3)',
+        to: '/food-links',
+      },
+    ],
+    [plannedThisWeek, savedRecipeCount, links.length]
+  );
 
   return (
     <>
@@ -46,8 +83,6 @@ export default function DashboardPage() {
         .dash-stat-card:hover { transform: translateY(-3px); border-color: rgba(255,255,255,0.13); }
         .dash-stat-val { font-family: 'Syne', sans-serif; font-size: 2.1rem; font-weight: 800; line-height: 1; margin-bottom: 0.3rem; }
         .dash-stat-label { font-size: 0.8rem; color: var(--muted); font-weight: 500; margin-bottom: 0.6rem; }
-        .dash-stat-progress { height: 3px; border-radius: 100px; background: rgba(255,255,255,0.06); overflow: hidden; }
-        .dash-stat-progress-bar { height: 100%; border-radius: 100px; }
         .dash-stat-link { font-size: 0.75rem; margin-top: 0.55rem; font-weight: 600; opacity: 0.7; }
 
         /* ── Quick actions ── */
@@ -72,34 +107,37 @@ export default function DashboardPage() {
       `}</style>
 
       <div className="dash-wrap">
-        {/* Hero welcome */}
         <div className="dash-hero">
           <div className="dash-hero-pill">🌶️ Pakistan's AI Meal Planner</div>
-          <h1>Hey <em>{firstName}</em>,<br />what are we eating? 🍛</h1>
-          <p>Your AI chef is ready. Tell it what's in your fridge or what you're craving — get a recipe or a restaurant in 10 seconds.</p>
+          <h1>
+            Hey <em>{firstName}</em>,<br />
+            what are we eating? 🍛
+          </h1>
+          <p>Your AI chef is ready. Tell it what&apos;s in your fridge or what you&apos;re craving — get a recipe or a restaurant in 10 seconds.</p>
           <div className="dash-hero-btns">
-            <Link to="/demo" className="dash-btn-main">Try AI Chef 🚀</Link>
-            <Link to="/cravings" className="dash-btn-ghost">I'm craving something 🛵</Link>
+            <Link to="/demo" className="dash-btn-main">
+              Try AI Chef 🚀
+            </Link>
+            <Link to="/cravings" className="dash-btn-ghost">
+              I&apos;m craving something 🛵
+            </Link>
           </div>
         </div>
 
-        {/* Stats row */}
         <div className="dash-stats">
-          {STATS.map(s => (
+          {stats.map((s) => (
             <Link key={s.label} to={s.to} className="dash-stat-card">
-              <div className="dash-stat-val" style={{ color: s.color }}>{s.value}</div>
+              <div className="dash-stat-val" style={{ color: s.color }}>
+                {s.value}
+              </div>
               <div className="dash-stat-label">{s.label}</div>
-              {s.label === 'Profile' && (
-                <div className="dash-stat-progress">
-                  <div className="dash-stat-progress-bar" style={{ width: s.value, background: s.color }} />
-                </div>
-              )}
-              <div className="dash-stat-link" style={{ color: s.color }}>{s.sub}</div>
+              <div className="dash-stat-link" style={{ color: s.color }}>
+                {s.sub}
+              </div>
             </Link>
           ))}
         </div>
 
-        {/* Quick actions */}
         <p className="dash-section-label">Quick actions</p>
         <div className="dash-grid">
           {QUICK_ACTIONS.map(({ to, label, emoji, desc, accent }) => (
