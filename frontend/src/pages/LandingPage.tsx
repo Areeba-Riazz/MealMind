@@ -68,14 +68,7 @@ export default function LandingPage() {
     <>
       <style>{`
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        :root {
-          --bg: #0c0c0c; --surface: #161616; --surface2: #1f1f1f;
-          --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.13);
-          --text: #f2ede4; --muted: #777; --muted2: #444;
-          --accent: #e8522a; --accent2: #f5c842; --accent3: #2ec27e;
-          --radius: 18px; --radius-lg: 26px;
-          --font-head: 'Syne', sans-serif; --font-body: 'DM Sans', sans-serif;
-        }
+
         html { scroll-behavior: smooth; }
         body { background: var(--bg); color: var(--text); font-family: var(--font-body); overflow-x: hidden; }
 
@@ -96,7 +89,7 @@ export default function LandingPage() {
         .btn-main { background: var(--accent); color: #fff; padding: 1rem 2.2rem; border-radius: 100px; font-weight: 700; font-size: 1rem; text-decoration: none; display: inline-block; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 8px 32px rgba(232,82,42,0.35); }
         .btn-main:hover { transform: translateY(-3px); box-shadow: 0 16px 44px rgba(232,82,42,0.45); }
         .btn-ghost { background: transparent; color: var(--text); padding: 1rem 2.2rem; border-radius: 100px; font-weight: 600; font-size: 1rem; text-decoration: none; border: 1px solid var(--border2); transition: border-color 0.2s, background 0.2s; }
-        .btn-ghost:hover { border-color: rgba(255,255,255,0.22); background: rgba(255,255,255,0.04); }
+        .btn-ghost:hover { border-color: var(--accent); background: var(--glass-hover); }
         .hero-trust { display: flex; align-items: center; gap: 0.7rem; color: var(--muted); font-size: 0.82rem; z-index: 1; position: relative; animation: fadeUp 0.7s 0.4s ease both; flex-wrap: wrap; justify-content: center; }
         .trust-avatars { display: flex; }
         .trust-avatars span { width: 30px; height: 30px; border-radius: 50%; background: var(--surface2); border: 2px solid var(--bg); display: flex; align-items: center; justify-content: center; font-size: 0.85rem; margin-left: -8px; }
@@ -127,7 +120,7 @@ export default function LandingPage() {
         .feat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.4rem; margin-top: 4rem; }
         .feat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 2.2rem; transition: transform 0.3s, border-color 0.3s, box-shadow 0.3s; position: relative; overflow: hidden; }
         .feat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--c, var(--accent)); }
-        .feat-card:hover { transform: translateY(-5px); border-color: rgba(255,255,255,0.13); box-shadow: 0 20px 50px rgba(0,0,0,0.3); }
+        .feat-card:hover { transform: translateY(-5px); border-color: var(--accent); box-shadow: 0 20px 50px rgba(0,0,0,0.15); }
         .feat-icon { font-size: 2.8rem; margin-bottom: 1.2rem; }
         .feat-title { font-family: var(--font-head); font-size: 1.2rem; font-weight: 700; margin-bottom: 0.65rem; }
         .feat-desc { color: var(--muted); line-height: 1.65; font-size: 0.93rem; }
@@ -319,7 +312,7 @@ export default function LandingPage() {
         </div>
         <div className="hero-trust">
           <div className="trust-avatars">
-            {['🧑','👩','👨','🧕','👦'].map((a, i) => <span key={i}>{a}</span>)}
+            {['🧑', '👩', '👨', '🧕', '👦'].map((a, i) => <span key={i}>{a}</span>)}
           </div>
           <span>Trusted by 50,000+ Pakistani households</span>
         </div>
@@ -390,7 +383,7 @@ export default function LandingPage() {
                 <p>MealMind knows your masala dabba as well as it knows your nearest sushi spot. Whether you want a simple anda paratha on a student budget or a trendy café brunch, it has you covered — with local pricing, real restaurant suggestions, and recipes that work.</p>
               </div>
               <div className="desi-emoji-cloud">
-                {['🍛','🥘','🫓','🍖','🧆','🍳','🌶️','🍣','🍜','☕','🧁','🍰'].map((e, i) => <span key={i}>{e}</span>)}
+                {['🍛', '🥘', '🫓', '🍖', '🧆', '🍳', '🌶️', '🍣', '🍜', '☕', '🧁', '🍰'].map((e, i) => <span key={i}>{e}</span>)}
               </div>
             </div>
             {[
@@ -556,7 +549,7 @@ export default function LandingPage() {
             <a href="#" className="footer-logo">Meal<span>Mind</span></a>
             <p className="footer-desc">Pakistan's first AI-powered meal planner. Reducing daily food decision fatigue one meal at a time — from Karachi to Khyber.</p>
             <div className="footer-socials">
-              {[['𝕏','#'],['in','#'],['▶','#'],['📘','#']].map(([icon, href], i) => (
+              {[['𝕏', '#'], ['in', '#'], ['▶', '#'], ['📘', '#']].map(([icon, href], i) => (
                 <a key={i} href={href} className="social-btn">{icon}</a>
               ))}
             </div>
@@ -564,19 +557,19 @@ export default function LandingPage() {
           <div>
             <p className="footer-col-title">Product</p>
             <ul className="footer-links">
-              {['Features','Pricing','How It Works','Roadmap','Changelog'].map(l => <li key={l}><a href="#">{l}</a></li>)}
+              {['Features', 'Pricing', 'How It Works', 'Roadmap', 'Changelog'].map(l => <li key={l}><a href="#">{l}</a></li>)}
             </ul>
           </div>
           <div>
             <p className="footer-col-title">Company</p>
             <ul className="footer-links">
-              {['About Us','Blog','Careers','Press Kit','Contact'].map(l => <li key={l}><a href="#">{l}</a></li>)}
+              {['About Us', 'Blog', 'Careers', 'Press Kit', 'Contact'].map(l => <li key={l}><a href="#">{l}</a></li>)}
             </ul>
           </div>
           <div>
             <p className="footer-col-title">Support</p>
             <ul className="footer-links">
-              {['Help Centre','Community','Status Page','Privacy Policy','Terms of Service'].map(l => <li key={l}><a href="#">{l}</a></li>)}
+              {['Help Centre', 'Community', 'Status Page', 'Privacy Policy', 'Terms of Service'].map(l => <li key={l}><a href="#">{l}</a></li>)}
             </ul>
           </div>
         </div>

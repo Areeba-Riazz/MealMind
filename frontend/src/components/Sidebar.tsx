@@ -3,19 +3,21 @@ import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { getAuth, signOut } from 'firebase/auth';
 import { app } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 
 const NAV_ITEMS = [
-  { to: '/dashboard',    label: 'Dashboard',     emoji: '🏠' },
-  { to: '/demo',         label: 'AI Chef',        emoji: '👨‍🍳' },
-  { to: '/cravings',     label: 'Cravings',       emoji: '🛵' },
-  { to: '/meal-planner', label: 'Meal Planner',   emoji: '📅' },
-  { to: '/saved',        label: 'Saved Recipes',  emoji: '📖' },
-  { to: '/food-links',   label: 'Food Links',     emoji: '🔗' },
-  { to: '/profile',      label: 'Profile',        emoji: '⚙️' },
+  { to: '/dashboard', label: 'Dashboard', emoji: '🏠' },
+  { to: '/demo', label: 'AI Chef', emoji: '👨‍🍳' },
+  { to: '/cravings', label: 'Cravings', emoji: '🛵' },
+  { to: '/meal-planner', label: 'Meal Planner', emoji: '📅' },
+  { to: '/saved', label: 'Saved Recipes', emoji: '📖' },
+  { to: '/food-links', label: 'Food Links', emoji: '🔗' },
+  { to: '/profile', label: 'Profile', emoji: '⚙️' },
 ];
 
 export default function Sidebar() {
   const { user } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('mealmind-sb-collapsed') === 'true');
 
@@ -52,8 +54,8 @@ export default function Sidebar() {
           height: 100vh;
           position: sticky;
           top: 0;
-          background: rgba(14,14,14,0.92);
-          border-right: 1px solid rgba(255,255,255,0.06);
+          background: var(--sidebar-bg);
+          border-right: 1px solid var(--border);
           backdrop-filter: blur(24px);
           -webkit-backdrop-filter: blur(24px);
           padding: 0;
@@ -67,7 +69,7 @@ export default function Sidebar() {
         .sb-head {
           display: flex;
           align-items: center;
-          border-bottom: 1px solid rgba(255,255,255,0.05);
+          border-bottom: 1px solid var(--border);
           flex-shrink: 0;
         }
         .sb-brand {
@@ -100,7 +102,7 @@ export default function Sidebar() {
           font-family: 'Syne', sans-serif;
           font-weight: 800;
           font-size: 1.18rem;
-          color: #f2ede4;
+          color: var(--text);
           letter-spacing: -0.4px;
           white-space: nowrap;
           opacity: 1;
@@ -116,8 +118,8 @@ export default function Sidebar() {
           height: 26px;
           border-radius: 7px;
           background: transparent;
-          border: 1px solid rgba(255,255,255,0.07);
-          color: rgba(255,255,255,0.28);
+          border: 1px solid var(--border2);
+          color: var(--muted2);
           font-size: 1rem;
           line-height: 1;
           display: flex;
@@ -129,9 +131,9 @@ export default function Sidebar() {
         }
         .sb.sb-c .sb-toggle { margin: 0 0.55rem 0 0.35rem; }
         .sb-toggle:hover {
-          color: rgba(255,255,255,0.7);
-          border-color: rgba(255,255,255,0.18);
-          background: rgba(255,255,255,0.04);
+          color: var(--text);
+          border-color: var(--border2);
+          background: var(--glass-hover);
         }
 
         /* ── Nav ── */
@@ -149,7 +151,7 @@ export default function Sidebar() {
           font-weight: 700;
           text-transform: uppercase;
           letter-spacing: 1.5px;
-          color: rgba(255,255,255,0.25);
+          color: var(--muted2);
           padding: 0.6rem 0.6rem 0.4rem;
           margin-top: 0.2rem;
           white-space: nowrap;
@@ -163,7 +165,7 @@ export default function Sidebar() {
           padding: 0.6rem 0.75rem;
           border-radius: 10px;
           text-decoration: none;
-          color: rgba(255,255,255,0.5);
+          color: var(--muted);
           font-size: 0.875rem;
           font-weight: 500;
           transition: color 0.18s, background 0.18s;
@@ -178,11 +180,11 @@ export default function Sidebar() {
           gap: 0;
         }
         .sb-link:hover {
-          color: rgba(255,255,255,0.85);
-          background: rgba(255,255,255,0.05);
+          color: var(--text);
+          background: var(--glass-hover);
         }
         .sb-link.active {
-          color: #f2ede4;
+          color: var(--accent);
           background: rgba(232,82,42,0.12);
           border-color: rgba(232,82,42,0.25);
           font-weight: 600;
@@ -199,7 +201,7 @@ export default function Sidebar() {
         /* ── User card ── */
         .sb-footer {
           padding: 0.85rem 0.75rem;
-          border-top: 1px solid rgba(255,255,255,0.05);
+          border-top: 1px solid var(--border);
           flex-shrink: 0;
         }
         .sb-user-card {
@@ -208,8 +210,8 @@ export default function Sidebar() {
           gap: 0.65rem;
           padding: 0.65rem 0.75rem;
           border-radius: 11px;
-          background: rgba(255,255,255,0.04);
-          border: 1px solid rgba(255,255,255,0.07);
+          background: var(--input-bg);
+          border: 1px solid var(--border2);
           margin-bottom: 0.55rem;
           min-width: 0;
           overflow: hidden;
@@ -243,14 +245,14 @@ export default function Sidebar() {
         .sb-user-name {
           font-size: 0.82rem;
           font-weight: 600;
-          color: #f2ede4;
+          color: var(--text);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
         }
         .sb-user-plan {
           font-size: 0.68rem;
-          color: rgba(255,255,255,0.35);
+          color: var(--muted);
           margin-top: 1px;
         }
         .sb-logout {
@@ -261,9 +263,9 @@ export default function Sidebar() {
           gap: 0.4rem;
           padding: 0.52rem;
           border-radius: 9px;
-          border: 1px solid rgba(255,255,255,0.08);
+          border: 1px solid var(--border2);
           background: transparent;
-          color: rgba(255,255,255,0.4);
+          color: var(--muted);
           font: 500 0.78rem 'DM Sans', sans-serif;
           cursor: pointer;
           transition: all 0.18s;
@@ -271,12 +273,36 @@ export default function Sidebar() {
           white-space: nowrap;
         }
         .sb-logout:hover {
-          color: #ff8a8a;
-          border-color: rgba(255,80,80,0.3);
-          background: rgba(255,80,80,0.06);
+          color: var(--danger);
+          border-color: var(--danger-border);
+          background: var(--danger-subtle);
         }
         .sb-logout-text { transition: opacity 0.15s ease; }
         .sb.sb-c .sb-logout-text { display: none; }
+
+        /* ── Theme Toggle ── */
+        .sb-theme-toggle {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.4rem;
+          padding: 0.52rem;
+          border-radius: 9px;
+          border: 1px solid var(--border2);
+          background: transparent;
+          color: var(--text);
+          font: 500 0.78rem 'DM Sans', sans-serif;
+          cursor: pointer;
+          transition: all 0.18s;
+          overflow: hidden;
+          white-space: nowrap;
+          margin-bottom: 0.4rem;
+        }
+        .sb-theme-toggle:hover {
+          background: var(--glass-hover);
+        }
+        .sb.sb-c .sb-theme-text { display: none; }
       `}</style>
 
       <aside className={`sb${collapsed ? ' sb-c' : ''}`} aria-label="Main navigation">
@@ -322,6 +348,10 @@ export default function Sidebar() {
               <div className="sb-user-plan">Free tier</div>
             </div>
           </div>
+          <button className="sb-theme-toggle" onClick={toggleTheme} title={collapsed ? 'Toggle Theme' : undefined}>
+            <span>{theme === 'dark' ? '☀️' : '🌙'}</span>
+            <span className="sb-theme-text"> {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+          </button>
           <button className="sb-logout" onClick={handleLogout} title={collapsed ? 'Log out' : undefined}>
             <span>↩</span>
             <span className="sb-logout-text"> Log out</span>

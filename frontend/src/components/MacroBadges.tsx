@@ -31,18 +31,18 @@ export default function MacroBadges({ nutrition, compact }: Props) {
           padding: ${compact ? '0.22rem 0.55rem' : '0.35rem 0.75rem'};
           border-radius: 100px;
           font: ${compact ? '600 0.68rem' : '600 0.75rem'} 'DM Sans', sans-serif;
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          background: rgba(255, 255, 255, 0.04);
-          color: rgba(255, 255, 255, 0.55);
+          border: 1px solid var(--border);
+          background: var(--input-bg);
+          color: var(--muted);
         }
-        .mb-badge.cal { border-color: rgba(232, 82, 42, 0.35); background: rgba(232, 82, 42, 0.08); color: #f2ede4; }
-        .mb-badge.pro { border-color: rgba(46, 194, 126, 0.3); background: rgba(46, 194, 126, 0.07); color: rgba(190, 240, 210, 0.95); }
-        .mb-badge.carb { border-color: rgba(100, 180, 255, 0.28); background: rgba(100, 180, 255, 0.07); color: rgba(180, 220, 255, 0.95); }
-        .mb-badge.fat { border-color: rgba(245, 200, 66, 0.3); background: rgba(245, 200, 66, 0.08); color: rgba(245, 220, 170, 0.95); }
-        .mb-badge.fiber { border-color: rgba(180, 140, 255, 0.25); background: rgba(180, 140, 255, 0.06); color: rgba(220, 200, 255, 0.9); }
+        .mb-badge.cal { border-color: rgba(232, 82, 42, 0.35); background: rgba(232, 82, 42, 0.08); color: var(--accent); }
+        .mb-badge.pro { border-color: rgba(46, 194, 126, 0.3); background: rgba(46, 194, 126, 0.07); color: #2ec27e; }
+        .mb-badge.carb { border-color: rgba(100, 180, 255, 0.28); background: rgba(100, 180, 255, 0.07); color: #64b4ff; }
+        .mb-badge.fat { border-color: rgba(245, 200, 66, 0.3); background: rgba(245, 200, 66, 0.08); color: #f5c842; }
+        .mb-badge.fiber { border-color: rgba(180, 140, 255, 0.25); background: rgba(180, 140, 255, 0.06); color: #b48cff; }
         .mb-hint {
           font-size: ${compact ? '0.62rem' : '0.68rem'};
-          color: rgba(255, 255, 255, 0.28);
+          color: var(--muted2);
           margin: ${compact ? '0.15rem 0 0' : '0.35rem 0 0'};
           font-style: italic;
         }

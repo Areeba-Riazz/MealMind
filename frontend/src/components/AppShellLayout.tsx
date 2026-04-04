@@ -3,13 +3,13 @@ import Sidebar from './Sidebar';
 import ChatWidget from './ChatWidget';
 
 const PAGE_TITLES: Record<string, { title: string; sub: string }> = {
-  '/dashboard':    { title: 'Dashboard',          sub: 'Your meal command center'         },
-  '/demo':         { title: 'AI Chef',             sub: 'Generate a recipe from your fridge' },
-  '/cravings':     { title: 'Cravings',            sub: 'Find the best food near you'      },
-  '/meal-planner': { title: 'Meal Planner',        sub: 'Plan meals by week and meal type' },
-  '/saved':        { title: 'Saved Recipes',       sub: 'Your personal recipe collection'  },
-  '/food-links':   { title: 'Food Links',          sub: 'Bookmarked restaurants & orders'  },
-  '/profile':      { title: 'Profile',             sub: 'Account, preferences & dietary'   },
+  '/dashboard': { title: 'Dashboard', sub: 'Your meal command center' },
+  '/demo': { title: 'AI Chef', sub: 'Generate a recipe from your fridge' },
+  '/cravings': { title: 'Cravings', sub: 'Find the best food near you' },
+  '/meal-planner': { title: 'Meal Planner', sub: 'Plan meals by week and meal type' },
+  '/saved': { title: 'Saved Recipes', sub: 'Your personal recipe collection' },
+  '/food-links': { title: 'Food Links', sub: 'Bookmarked restaurants & orders' },
+  '/profile': { title: 'Profile', sub: 'Account, preferences & dietary' },
 };
 
 export default function AppShellLayout() {
@@ -22,7 +22,8 @@ export default function AppShellLayout() {
         .mm-shell {
           display: flex;
           min-height: 100vh;
-          background: #0c0c0c;
+          background: var(--shell-bg);
+          color: var(--text);
         }
         .mm-shell-main {
           flex: 1;
@@ -37,8 +38,8 @@ export default function AppShellLayout() {
           align-items: center;
           justify-content: space-between;
           padding: 1.1rem 2rem;
-          border-bottom: 1px solid rgba(255,255,255,0.05);
-          background: rgba(12,12,12,0.8);
+          border-bottom: 1px solid var(--border);
+          background: var(--glass-bg);
           backdrop-filter: blur(16px);
           position: sticky;
           top: 0;
@@ -55,7 +56,7 @@ export default function AppShellLayout() {
         }
         .mm-topbar-left p {
           font-size: 0.77rem;
-          color: rgba(255,255,255,0.35);
+          color: var(--muted);
           margin: 0;
         }
         .mm-topbar-right {
@@ -68,8 +69,8 @@ export default function AppShellLayout() {
           align-items: center;
           gap: 0.35rem;
           padding: 0.3rem 0.8rem;
-          background: rgba(232,82,42,0.09);
-          border: 1px solid rgba(232,82,42,0.22);
+          background: var(--glass-hover);
+          border: 1px solid var(--border);
           border-radius: 100px;
           font-size: 0.72rem;
           font-weight: 700;
@@ -84,11 +85,11 @@ export default function AppShellLayout() {
           overflow-x: hidden;
           padding: 2rem;
           scrollbar-width: thin;
-          scrollbar-color: rgba(255,255,255,0.08) transparent;
+          scrollbar-color: var(--border) transparent;
         }
         .mm-shell-content::-webkit-scrollbar { width: 5px; }
         .mm-shell-content::-webkit-scrollbar-track { background: transparent; }
-        .mm-shell-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 10px; }
+        .mm-shell-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
 
         @media (max-width: 768px) {
           .mm-topbar { padding: 0.9rem 1.2rem; }

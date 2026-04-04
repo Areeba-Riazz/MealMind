@@ -2,7 +2,7 @@ import '../index.css';
 
 // Inline keyframe animation for the shimmer effect
 const shimmerStyle: React.CSSProperties = {
-  background: 'linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.09) 50%, rgba(255,255,255,0.04) 75%)',
+  background: 'linear-gradient(90deg, var(--input-bg) 25%, var(--border) 50%, var(--input-bg) 75%)',
   backgroundSize: '200% 100%',
   animation: 'skeleton-shimmer 1.4s ease-in-out infinite',
   borderRadius: '6px',
