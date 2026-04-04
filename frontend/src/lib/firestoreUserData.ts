@@ -47,21 +47,35 @@ export const DEFAULT_DIETARY: UserDietary = {
 export async function loadUserProfile(uid: string): Promise<{
   preferences: UserPreferences;
   dietary: UserDietary;
+  /** Present when `users/{uid}` exists and field is a boolean; otherwise null. */
+  onboardingCompleted: boolean | null;
 }> {
   if (!db) {
-    return { preferences: { ...DEFAULT_PREFERENCES }, dietary: { ...DEFAULT_DIETARY } };
+    return {
+      preferences: { ...DEFAULT_PREFERENCES },
+      dietary: { ...DEFAULT_DIETARY },
+      onboardingCompleted: null,
+    };
   }
   const snap = await getDoc(doc(db, 'users', uid));
   if (!snap.exists()) {
-    return { preferences: { ...DEFAULT_PREFERENCES }, dietary: { ...DEFAULT_DIETARY } };
+    return {
+      preferences: { ...DEFAULT_PREFERENCES },
+      dietary: { ...DEFAULT_DIETARY },
+      onboardingCompleted: null,
+    };
   }
   const data = snap.data() as {
     preferences?: Partial<UserPreferences>;
     dietary?: Partial<UserDietary>;
+    onboardingCompleted?: unknown;
   };
+  const ob = data.onboardingCompleted;
+  const onboardingCompleted = typeof ob === 'boolean' ? ob : null;
   return {
     preferences: { ...DEFAULT_PREFERENCES, ...data.preferences },
     dietary: { ...DEFAULT_DIETARY, ...data.dietary },
+    onboardingCompleted,
   };
 }
 
@@ -75,18 +89,33 @@ export async function saveUserDietary(uid: string, dietary: UserDietary): Promis
   await setDoc(doc(db, 'users', uid), { dietary }, { merge: true });
 }
 
-/** Whether the user finished post-signup onboarding (`users/{uid}`). */
+/** Whether the user finished post-signup onboarding (`users/{uid}`). Prefer `loadUserProfile` when you also need prefs (one read). */
 export async function getOnboardingCompleted(uid: string): Promise<boolean | null> {
-  if (!db) return null;
-  const snap = await getDoc(doc(db, 'users', uid));
-  if (!snap.exists()) return null;
-  const v = snap.data()?.onboardingCompleted;
-  return typeof v === 'boolean' ? v : null;
+  const { onboardingCompleted } = await loadUserProfile(uid);
+  return onboardingCompleted;
 }
 
 export async function setOnboardingCompleted(uid: string, completed = true): Promise<void> {
   if (!db) return;
   await setDoc(doc(db, 'users', uid), { onboardingCompleted: completed }, { merge: true });
+}
+
+/** One Firestore write: preferences, dietary, and onboarding flag (faster than three separate setDoc calls). */
+export async function saveUserProfileAndCompleteOnboarding(
+  uid: string,
+  preferences: UserPreferences,
+  dietary: UserDietary
+): Promise<void> {
+  if (!db) throw new Error('Firestore is not configured');
+  await setDoc(
+    doc(db, 'users', uid),
+    {
+      preferences,
+      dietary,
+      onboardingCompleted: true,
+    },
+    { merge: true }
+  );
 }
 
 // ─── Saved recipes: users/{uid}/savedRecipes/{recipeId} ───

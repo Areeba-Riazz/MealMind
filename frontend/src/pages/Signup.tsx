@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getAuth, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { app } from '../lib/firebase';
+import { AUTH_CONFIG_MISSING, getAuthErrorMessage } from '../lib/authErrors';
 
 const floatingFoods = ['🍛', '🥘', '🫓', '🍖', '🧆', '🥗', '🍳', '🌶️', '🫚', '🍚', '🥙', '🍜', '🥑', '🍱', '🌮', '🧅', '🫛', '🥦', '🍣', '☕', '🧁', '🍰', '🫖', '🍩'];
 
@@ -20,11 +21,11 @@ export default function Signup() {
   const handleSignup = async (e: FormEvent) => {
     e.preventDefault();
     if (password !== confirmPassword) {
-      setError('Passwords do not match.');
+      setError('The passwords you entered do not match. Please check and try again.');
       return;
     }
     if (!import.meta.env.VITE_FIREBASE_API_KEY) {
-      setError('Firebase not configured. Please add keys to .env to test real auth.');
+      setError(AUTH_CONFIG_MISSING);
       return;
     }
     setError(null);
@@ -35,7 +36,7 @@ export default function Signup() {
       await updateProfile(userCredential.user, { displayName: name });
       navigate('/onboarding', { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Sign up failed. Please try again.');
+      setError(getAuthErrorMessage(err, 'We could not create your account. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -287,7 +288,7 @@ export default function Signup() {
               <p>Start making smarter meal decisions today</p>
             </div>
 
-            {error && <div className="signup-error">⚠️ {error}</div>}
+            {error && <div className="signup-error">{error}</div>}
 
             <form onSubmit={handleSignup}>
               <div className="input-group">
