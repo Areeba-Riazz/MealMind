@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
 
 const requiredKeys = [
   'VITE_FIREBASE_API_KEY',
@@ -32,5 +33,6 @@ const app = firebaseConfig.apiKey && !missingKeys.length
   : null;
 
 const auth = app ? getAuth(app) : null;
+const db = app ? getFirestore(app) : null;
 
-export { app, auth };
+export { app, auth, db };

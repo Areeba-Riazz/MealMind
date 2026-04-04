@@ -1,21 +1,27 @@
+import { useEffect, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { getAuth, signOut } from 'firebase/auth';
 import { app } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
 
 const NAV_ITEMS = [
-  { to: '/dashboard',  label: 'Dashboard',     emoji: '🏠' },
-  { to: '/demo',       label: 'AI Chef',        emoji: '👨‍🍳' },
-  { to: '/cravings',   label: 'Cravings',       emoji: '🛵' },
-  { to: '/saved',      label: 'Saved Recipes',  emoji: '📖' },
-  { to: '/food-links', label: 'Food Links',     emoji: '🔗' },
-  { to: '/profile',    label: 'Profile',        emoji: '⚙️' },
-  { to: '/onboarding', label: 'Onboarding',     emoji: '✨' },
+  { to: '/dashboard',    label: 'Dashboard',     emoji: '🏠' },
+  { to: '/demo',         label: 'AI Chef',        emoji: '👨‍🍳' },
+  { to: '/cravings',     label: 'Cravings',       emoji: '🛵' },
+  { to: '/meal-planner', label: 'Meal Planner',   emoji: '📅' },
+  { to: '/saved',        label: 'Saved Recipes',  emoji: '📖' },
+  { to: '/food-links',   label: 'Food Links',     emoji: '🔗' },
+  { to: '/profile',      label: 'Profile',        emoji: '⚙️' },
 ];
 
 export default function Sidebar() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('mealmind-sb-collapsed') === 'true');
+
+  useEffect(() => {
+    localStorage.setItem('mealmind-sb-collapsed', String(collapsed));
+  }, [collapsed]);
 
   const handleLogout = async () => {
     try {
@@ -53,16 +59,31 @@ export default function Sidebar() {
           padding: 0;
           overflow: hidden;
           z-index: 100;
+          transition: width 0.22s cubic-bezier(0.4,0,0.2,1);
         }
+        .sb.sb-c { width: 64px; }
 
-        /* ── Brand ── */
+        /* ── Brand row (brand link + toggle button) ── */
+        .sb-head {
+          display: flex;
+          align-items: center;
+          border-bottom: 1px solid rgba(255,255,255,0.05);
+          flex-shrink: 0;
+        }
         .sb-brand {
           display: flex;
           align-items: center;
           gap: 0.55rem;
-          padding: 1.4rem 1.25rem 1.2rem;
-          border-bottom: 1px solid rgba(255,255,255,0.05);
+          padding: 1.3rem 0.5rem 1.2rem 1.25rem;
           text-decoration: none;
+          flex: 1;
+          min-width: 0;
+          overflow: hidden;
+        }
+        .sb.sb-c .sb-brand {
+          flex: 0 0 auto;
+          padding: 1.3rem 0 1.2rem 0.9rem;
+          gap: 0;
         }
         .sb-brand-icon {
           width: 32px;
@@ -81,8 +102,37 @@ export default function Sidebar() {
           font-size: 1.18rem;
           color: #f2ede4;
           letter-spacing: -0.4px;
+          white-space: nowrap;
+          opacity: 1;
+          transition: opacity 0.15s ease;
         }
+        .sb.sb-c .sb-brand-name { display: none; }
         .sb-brand-name span { color: #e8522a; }
+
+        /* ── Toggle button ── */
+        .sb-toggle {
+          flex-shrink: 0;
+          width: 26px;
+          height: 26px;
+          border-radius: 7px;
+          background: transparent;
+          border: 1px solid rgba(255,255,255,0.07);
+          color: rgba(255,255,255,0.28);
+          font-size: 1rem;
+          line-height: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          margin: 0 0.75rem 0 0.4rem;
+          transition: color 0.18s, border-color 0.18s, background 0.18s;
+        }
+        .sb.sb-c .sb-toggle { margin: 0 0.55rem 0 0.35rem; }
+        .sb-toggle:hover {
+          color: rgba(255,255,255,0.7);
+          border-color: rgba(255,255,255,0.18);
+          background: rgba(255,255,255,0.04);
+        }
 
         /* ── Nav ── */
         .sb-nav {
@@ -102,7 +152,9 @@ export default function Sidebar() {
           color: rgba(255,255,255,0.25);
           padding: 0.6rem 0.6rem 0.4rem;
           margin-top: 0.2rem;
+          white-space: nowrap;
         }
+        .sb.sb-c .sb-section-label { display: none; }
 
         .sb-link {
           display: flex;
@@ -117,6 +169,13 @@ export default function Sidebar() {
           transition: color 0.18s, background 0.18s;
           margin-bottom: 0.1rem;
           border: 1px solid transparent;
+          white-space: nowrap;
+          overflow: hidden;
+        }
+        .sb.sb-c .sb-link {
+          justify-content: center;
+          padding: 0.65rem 0;
+          gap: 0;
         }
         .sb-link:hover {
           color: rgba(255,255,255,0.85);
@@ -134,11 +193,14 @@ export default function Sidebar() {
           text-align: center;
           flex-shrink: 0;
         }
+        .sb-link-label { transition: opacity 0.15s ease; }
+        .sb.sb-c .sb-link-label { display: none; }
 
         /* ── User card ── */
         .sb-footer {
           padding: 0.85rem 0.75rem;
           border-top: 1px solid rgba(255,255,255,0.05);
+          flex-shrink: 0;
         }
         .sb-user-card {
           display: flex;
@@ -150,6 +212,12 @@ export default function Sidebar() {
           border: 1px solid rgba(255,255,255,0.07);
           margin-bottom: 0.55rem;
           min-width: 0;
+          overflow: hidden;
+        }
+        .sb.sb-c .sb-user-card {
+          justify-content: center;
+          padding: 0.55rem;
+          gap: 0;
         }
         .sb-avatar {
           width: 32px;
@@ -169,7 +237,9 @@ export default function Sidebar() {
         .sb-user-info {
           min-width: 0;
           flex: 1;
+          overflow: hidden;
         }
+        .sb.sb-c .sb-user-info { display: none; }
         .sb-user-name {
           font-size: 0.82rem;
           font-weight: 600;
@@ -197,20 +267,34 @@ export default function Sidebar() {
           font: 500 0.78rem 'DM Sans', sans-serif;
           cursor: pointer;
           transition: all 0.18s;
+          overflow: hidden;
+          white-space: nowrap;
         }
         .sb-logout:hover {
           color: #ff8a8a;
           border-color: rgba(255,80,80,0.3);
           background: rgba(255,80,80,0.06);
         }
+        .sb-logout-text { transition: opacity 0.15s ease; }
+        .sb.sb-c .sb-logout-text { display: none; }
       `}</style>
 
-      <aside className="sb" aria-label="Main navigation">
-        {/* Brand */}
-        <Link to="/dashboard" className="sb-brand">
-          <div className="sb-brand-icon">🍛</div>
-          <span className="sb-brand-name">Meal<span>Mind</span></span>
-        </Link>
+      <aside className={`sb${collapsed ? ' sb-c' : ''}`} aria-label="Main navigation">
+        {/* Brand + toggle */}
+        <div className="sb-head">
+          <Link to="/dashboard" className="sb-brand">
+            <div className="sb-brand-icon">🍛</div>
+            <span className="sb-brand-name">Meal<span>Mind</span></span>
+          </Link>
+          <button
+            className="sb-toggle"
+            onClick={() => setCollapsed(p => !p)}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {collapsed ? '›' : '‹'}
+          </button>
+        </div>
 
         {/* Nav links */}
         <nav className="sb-nav">
@@ -221,24 +305,26 @@ export default function Sidebar() {
               to={to}
               end={to === '/dashboard'}
               className={({ isActive }) => `sb-link${isActive ? ' active' : ''}`}
+              title={collapsed ? navLabel : undefined}
             >
               <span className="sb-link-emoji">{emoji}</span>
-              {navLabel}
+              <span className="sb-link-label">{navLabel}</span>
             </NavLink>
           ))}
         </nav>
 
         {/* User footer */}
         <div className="sb-footer">
-          <div className="sb-user-card">
+          <div className="sb-user-card" title={collapsed ? label : undefined}>
             <div className="sb-avatar">{initials}</div>
             <div className="sb-user-info">
               <div className="sb-user-name">{label}</div>
               <div className="sb-user-plan">Free tier</div>
             </div>
           </div>
-          <button className="sb-logout" onClick={handleLogout}>
-            ↩ Log out
+          <button className="sb-logout" onClick={handleLogout} title={collapsed ? 'Log out' : undefined}>
+            <span>↩</span>
+            <span className="sb-logout-text"> Log out</span>
           </button>
         </div>
       </aside>
