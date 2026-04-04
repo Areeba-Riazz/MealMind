@@ -3,6 +3,7 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 import { app } from '../lib/firebase';
+import { AUTH_CONFIG_MISSING, getAuthErrorMessage } from '../lib/authErrors';
 
 const floatingFoods = ['🍛', '🥘', '🫓', '🍖', '🧆', '🥗', '🍳', '🌶️', '🫚', '🍚', '🥙', '🍜', '🥑', '🍱', '🌮', '🧅', '🫛', '🥦', '🍣', '☕', '🧁', '🍰', '🫖', '🍩'];
 
@@ -17,7 +18,7 @@ export default function Login() {
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     if (!import.meta.env.VITE_FIREBASE_API_KEY) {
-      setError('Firebase not configured. Please add keys to .env to test real auth.');
+      setError(AUTH_CONFIG_MISSING);
       return;
     }
     setError(null);
@@ -27,7 +28,7 @@ export default function Login() {
       await signInWithEmailAndPassword(auth, email, password);
       navigate('/dashboard', { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed. Please try again.');
+      setError(getAuthErrorMessage(err, 'We could not sign you in. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -352,7 +353,7 @@ export default function Login() {
               <p>Enter your credentials to continue</p>
             </div>
 
-            {error && <div className="login-error">⚠️ {error}</div>}
+            {error && <div className="login-error">{error}</div>}
 
             <form onSubmit={handleLogin}>
               <div className="input-group">

@@ -97,8 +97,7 @@ Engagement features and localisation — product depth after MVP is stable.
 
 - [ ] Urdu language interface *(high-value; significant localisation effort)*
 - [ ] Weekly auto meal plan generation *(full-week planning with combined grocery list)*
-- [ ] Ramadan Sehri / Iftar planner
-- [ ] Saved meals & personal recipe history
+- [x] Saved meals & personal recipe history
 - [ ] In-app meal reminders *(optional; no third-party messaging dependency)*
 - [ ] Grocery list export (PDF)
 - [ ] Recipe scaling *(servings per dish; ties into profile defaults)*
