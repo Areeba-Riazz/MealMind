@@ -27,7 +27,7 @@ Infrastructure, tooling, and authentication.
 - [x] Firebase Authentication (email/password)
 - [x] React Router v7 — client-side routing
 - [x] AuthContext + protected route pattern
-- [x] Flask backend scaffold + `/api/recommend` endpoint
+- [x] Express.js backend scaffold + `/api/recommend` endpoint
 - [x] Environment variable setup (`VITE_FIREBASE_*`)
 
 ---
@@ -52,8 +52,8 @@ Order-in feature, public-facing pages, launch readiness, and app shell.
 
 - [x] Landing page — full marketing site
 - [x] Login / Signup pages (redirect → `/dashboard` / `/onboarding`)
-- [x] Smart Local Search (Cravings) — mock restaurant results, quick chips, result cards
 - [x] Shared Sidebar navigation with emoji icons, active states, user card
+- [x] **Collapsible sidebar** — toggle collapses to icon-only rail (64 px); state persisted to `localStorage`
 - [x] App shell layout — sticky topbar + scrollable content area
 - [x] **Dashboard** — welcome hero, stat cards, quick-action grid
 - [x] **Unified Profile page** (tabbed) — replaces separate `/preferences` + `/dietary` routes
@@ -62,15 +62,31 @@ Order-in feature, public-facing pages, launch readiness, and app shell.
   - [x] Diet & Allergies tab: allergen + diet interactive chips, disclaimer
 - [x] **AI Chef (Demo)** — redesigned form + numbered step results + error state
 - [x] **Cravings** — quick-pick chips, loading spinner, redesigned result cards
-- [x] **Saved Recipes** — interactive card list, remove action, empty state
-- [x] **Food Links** — card list with platform tags + order buttons
+- [x] **Smart Local Search** — real restaurant results via Google Maps Places API + Gemini query parser
+  - [x] `POST /api/cravings` endpoint — Gemini query parser → Maps Text Search → price-tier filter → up to 5 results
+  - [x] `PRICE_TIER_MAP` — PKR → Google Maps price level ceiling (1–4)
+  - [x] Haversine distance calculation from user coordinates
+  - [x] Skeleton loaders (3 × `SkeletonCard`) while request is in flight
+  - [x] Empty state with suggestion text when no results returned
+  - [x] Error state with human-readable message on API failure
+  - [x] Area text-input fallback when browser geolocation is denied
+  - [x] `useGeolocation` hook — exposes `{ lat, lng, denied, loading }`
+  - [x] CravingsMap component — renders restaurant pins on a map
+- [x] **Saved Recipes** — interactive card list, remove action, empty state, filter tabs
+  - [x] AI recipe cards with expandable step-by-step instructions
+  - [x] Online recipe cards with external link
+  - [x] **Craving / restaurant cards** — save restaurants from Smart Local Search results
+  - [x] Filter tabs: All · AI Recipes · Online Finds · Cravings
+  - [x] **Cloud sync** — saved recipes in Firestore (`users/{uid}/savedRecipes`); one-time migration from `localStorage` when empty; realtime listener; `localStorage` fallback if Firebase is not configured
+- [x] **Food Links** — card list with platform tags + order buttons; Firestore `users/{uid}/foodLinks` with add/remove UI; demo seed on first empty load; offline demo when Firebase is missing
+- [x] **Profile Firestore** — preferences and dietary restrictions on `users/{uid}` document; load on mount; Save buttons persist to Firestore
 - [x] **Onboarding** — step indicator, skill pill selector, navigation
-- [ ] Real restaurant data integration (Foodpanda / WhatsApp deep links)
-- [ ] Firestore wiring — preferences, dietary, saved recipes, food links
+- [x] Backend port conflict error handling — explicit `EADDRINUSE` message + graceful exit
+- [x] **Firestore security rules** — `firestore.rules` + `firebase.json` for deploy (`firebase deploy --only firestore:rules`)
 - [ ] Macro & calorie display in recipe output (MacroBadges component)
 - [ ] Google Sign-In (OAuth)
 - [ ] Mobile responsiveness QA pass (375px / 390px)
-- [ ] "Save recipe" action on Demo page → saved collection
+- [x] "Save recipe" action on AI Chef (Demo) page → saved collection
 
 ---
 

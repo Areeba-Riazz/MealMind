@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { useGeolocation } from '../hooks/useGeolocation';
+import { useFoodLinks } from '../context/FoodLinksContext';
 import SkeletonCard from '../components/SkeletonCard';
 import CravingsMap from '../components/CravingsMap';
 
@@ -25,6 +26,7 @@ export default function Cravings() {
   const [error, setError] = useState<string | null>(null);
 
   const geo = useGeolocation();
+  const { links, addFoodLink, removeFoodLink } = useFoodLinks();
 
   const handleSearch = async (e: FormEvent) => {
     e.preventDefault();
@@ -126,6 +128,12 @@ export default function Cravings() {
         .crav-order-btn:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(232,82,42,0.4); }
 
         .crav-disclaimer { text-align:center; font-size:0.75rem; color:rgba(255,255,255,0.25); margin-top:1.2rem; font-style:italic; }
+
+        /* Save button */
+        .crav-card-actions { display:flex; flex-direction:column; gap:0.4rem; align-items:flex-end; flex-shrink:0; }
+        .crav-save-btn { background:transparent; border:1px solid rgba(255,255,255,0.1); border-radius:100px; padding:0.35rem 0.7rem; font-size:0.82rem; cursor:pointer; transition:all 0.18s; color:rgba(255,255,255,0.4); white-space:nowrap; }
+        .crav-save-btn:hover { border-color:rgba(232,82,42,0.4); background:rgba(232,82,42,0.06); color:var(--accent); }
+        .crav-save-btn.is-saved { border-color:rgba(232,82,42,0.5); background:rgba(232,82,42,0.1); color:var(--accent); }
       `}</style>
 
       <div className="crav-wrap">
@@ -207,7 +215,10 @@ export default function Cravings() {
           <div>
             <p className="crav-results-label">Top matches near you</p>
             <div className="crav-results">
-              {results.map((res) => (
+              {results.map((res) => {
+                const savedEntry = links.find((l) => l.href === res.orderLink);
+                const isSavedResult = !!savedEntry;
+                return (
                 <div key={res.id} className="crav-result-card">
                   <div className="crav-result-body">
                     <p className="crav-result-item">{res.name}</p>
@@ -218,16 +229,45 @@ export default function Cravings() {
                       {res.priceLevel > 0 && <span className="crav-result-tag">{'💰'.repeat(res.priceLevel)}</span>}
                     </div>
                   </div>
-                  <a
-                    href={res.orderLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="crav-order-btn"
-                  >
-                    Order ↗
-                  </a>
+                  <div className="crav-card-actions">
+                    <button
+                      className={`crav-save-btn${isSavedResult ? ' is-saved' : ''}`}
+                      title={isSavedResult ? 'Remove from saved' : 'Save restaurant'}
+                      onClick={() => {
+                        if (isSavedResult && savedEntry) {
+                          void removeFoodLink(savedEntry.id);
+                        } else {
+                          const q = craving.trim() || 'Local search';
+                          void addFoodLink({
+                            restaurant: res.name,
+                            item: q,
+                            area: res.address,
+                            distance: res.distanceKm > 0 ? `${res.distanceKm.toFixed(1)} km` : '—',
+                            price:
+                              res.priceLevel > 0
+                                ? `Tier ${res.priceLevel}`
+                                : '—',
+                            emoji: '🛵',
+                            platform: 'Google Maps',
+                            href: res.orderLink,
+                          });
+                        }
+                      }}
+                    >
+                      {isSavedResult ? '🔖 Saved' : '+ Save'}
+                    </button>
+                    <a
+                      href={res.orderLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="crav-order-btn"
+                    >
+                      Order ↗
+                    </a>
+                  </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
             <CravingsMap
               userLat={hasCoords ? geo.lat : null}

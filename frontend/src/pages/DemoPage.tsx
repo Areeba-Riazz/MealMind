@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
 import { useSavedRecipes } from '../context/SavedRecipesContext';
+import MacroBadges from '../components/MacroBadges';
+import { parseNutrition, type RecipeNutrition } from '../types/recipeNutrition';
 
 const LOADING_MESSAGES = [
   'Searching the internet for recipes... 🔍',
@@ -27,6 +29,7 @@ interface Recommendation {
   isFallback?: boolean;
   foundOnline?: OnlineRecipe[];
   references?: Reference[];
+  nutrition?: RecipeNutrition;
 }
 
 export default function DemoPage() {
@@ -64,10 +67,11 @@ export default function DemoPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ingredients, budget, time, goal }),
       });
-      const data: Recommendation & { error?: string } = await res.json();
+      const data: Recommendation & { error?: string; nutrition?: unknown } = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Failed to fetch recommendation');
       if (!data.recipeName || !data.instructions) throw new Error('Invalid response format.');
-      setRecommendation(data);
+      const nutrition = parseNutrition(data.nutrition);
+      setRecommendation(nutrition ? { ...data, nutrition } : { ...data, nutrition: undefined });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred.');
     } finally {
@@ -105,6 +109,7 @@ export default function DemoPage() {
         instructions: recommendation.instructions,
         isFallback: recommendation.isFallback,
         references: recommendation.references,
+        ...(recommendation.nutrition ? { nutrition: recommendation.nutrition } : {}),
       });
       setAiSaveFlash(true);
       setTimeout(() => setAiSaveFlash(false), 1800);
@@ -292,6 +297,10 @@ export default function DemoPage() {
                 {isSaved(recommendation.recipeName) ? '✓ Saved' : '🔖 Save Recipe'}
               </button>
             </div>
+
+            {recommendation.nutrition && (
+              <MacroBadges nutrition={recommendation.nutrition} />
+            )}
 
             {/* ── Found Online ── */}
             {recommendation.foundOnline && recommendation.foundOnline.length > 0 && (

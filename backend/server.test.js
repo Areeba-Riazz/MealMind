@@ -20,6 +20,7 @@ const {
   filterByPrice,
   formatResults,
   haversineKm,
+  placePriceLevel,
 } = require("./server.js");
 
 // ---------------------------------------------------------------------------
@@ -86,7 +87,17 @@ describe("filterByPrice", () => {
   it("filters out places above the mapped ceiling", () => {
     // 800 PKR → ceiling 2; levels 3 and 4 should be excluded
     const result = filterByPrice(places, 800);
-    assert.ok(result.every((p) => p.priceLevel <= 2));
+    assert.ok(result.every((p) => placePriceLevel(p) <= 2));
+  });
+
+  it("respects Google Places price_level field", () => {
+    const googleStyle = [
+      { name: "A", price_level: 1 },
+      { name: "B", price_level: 4 },
+    ];
+    const result = filterByPrice(googleStyle, 400);
+    assert.equal(result.length, 1);
+    assert.equal(result[0].name, "A");
   });
 
   it("keeps all places when maxPricePkr maps to level 4", () => {
@@ -124,7 +135,7 @@ describe("filterByPrice", () => {
           const ceiling = mapPriceLevel(maxPricePkr);
           const result = filterByPrice(arr, maxPricePkr);
           assert.ok(
-            result.every((p) => p.priceLevel <= ceiling),
+            result.every((p) => placePriceLevel(p) <= ceiling),
             `Found a result with priceLevel > ${ceiling}`
           );
         }

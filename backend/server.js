@@ -33,254 +33,6 @@ app.use(cors({
   },
 }));
 
-/**
- * @typedef {{ foodTerm: string, maxPricePkr?: number, area?: string }} ParsedQuery
- */
-
-/**
- * Uses Gemini to extract structured search parameters from a free-text craving query.
- * @param {string} query
- * @returns {Promise<ParsedQuery>}
- */
-async function parseQuery(query) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("Missing GEMINI_API_KEY in the backend .env");
-  }
-
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
-  const prompt = `
-    You are a query parser for a food search app.
-    Extract structured fields from the user's craving query.
-
-    Query: "${query}"
-
-    Respond ONLY with valid JSON matching this schema (no Markdown, no extra text):
-    {
-      "foodTerm": "<the food or restaurant type being searched for, non-empty string>",
-      "maxPricePkr": <optional positive number representing max price in PKR, omit if not mentioned>,
-      "area": "<optional city or neighbourhood string, omit if not mentioned>"
-    }
-  `;
-
-  const result = await model.generateContent(prompt);
-  let responseText = result.response.text();
-
-  // Strip markdown fences (same pattern as /api/recommend)
-  responseText = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
-
-  const parsed = JSON.parse(responseText);
-
-  if (!parsed.foodTerm || typeof parsed.foodTerm !== "string" || parsed.foodTerm.trim() === "") {
-    throw new Error("Query parser returned an empty or missing foodTerm");
-  }
-
-  return {
-    foodTerm: parsed.foodTerm.trim(),
-    ...(typeof parsed.maxPricePkr === "number" && parsed.maxPricePkr > 0
-      ? { maxPricePkr: parsed.maxPricePkr }
-      : {}),
-    ...(typeof parsed.area === "string" && parsed.area.trim()
-      ? { area: parsed.area.trim() }
-      : {}),
-  };
-}
-
-/**
- * Maps a PKR max-price value to a Google Maps Price Level ceiling.
- * Entries are checked in order; the first entry whose maxPkr >= maxPricePkr wins.
- * Requirements: 2.4
- */
-const PRICE_TIER_MAP = [
-  { maxPkr: 400,      priceLevel: 1 },
-  { maxPkr: 800,      priceLevel: 2 },
-  { maxPkr: 1500,     priceLevel: 3 },
-  { maxPkr: Infinity, priceLevel: 4 },
-];
-
-/**
- * Returns the Google Maps Price Level ceiling for a given PKR amount.
- * @param {number} maxPricePkr
- * @returns {number} priceLevel ceiling (1–4)
- */
-function mapPriceLevel(maxPricePkr) {
-  const entry = PRICE_TIER_MAP.find((e) => maxPricePkr <= e.maxPkr);
-  return entry ? entry.priceLevel : 4;
-}
-
-/**
- * Filters an array of place objects by price level.
- * When maxPricePkr is undefined the input array is returned unchanged.
- * Requirements: 2.2, 2.3
- *
- * @param {Array<{priceLevel?: number}>} places
- * @param {number|undefined} maxPricePkr
- * @returns {Array}
- */
-function filterByPrice(places, maxPricePkr) {
-  if (maxPricePkr === undefined) return places;
-  const ceiling = mapPriceLevel(maxPricePkr);
-  return places.filter((p) => (p.priceLevel ?? 0) <= ceiling);
-}
-
-/**
- * Haversine formula — straight-line distance between two lat/lng points in km.
- * @param {number} lat1
- * @param {number} lng1
- * @param {number} lat2
- * @param {number} lng2
- * @returns {number}
- */
-function haversineKm(lat1, lng1, lat2, lng2) {
-  const R = 6371; // Earth radius in km
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-/**
- * Maps raw Google Maps place objects to CravingResult shape.
- * Caps output at 5 results.
- * Requirements: 1.3, 1.4, 5.1
- *
- * @param {Array<object>} places  Raw places from the Maps API
- * @param {number|undefined} userLat
- * @param {number|undefined} userLng
- * @returns {Array<import('./types').CravingResult>}
- */
-function formatResults(places, userLat, userLng) {
-  return places.slice(0, 5).map((place) => {
-    const placeLat = place.geometry?.location?.lat;
-    const placeLng = place.geometry?.location?.lng;
-
-    const distanceKm =
-      userLat != null &&
-      userLng != null &&
-      placeLat != null &&
-      placeLng != null
-        ? haversineKm(userLat, userLng, placeLat, placeLng)
-        : 0;
-
-    return {
-      id: place.place_id ?? "",
-      name: place.name ?? "",
-      address: place.formatted_address ?? "",
-      distanceKm,
-      priceLevel: place.price_level ?? 0,
-      rating: place.rating ?? 0,
-      orderLink: `https://www.google.com/maps/place/?q=place_id:${place.place_id ?? ""}`,
-    };
-  });
-}
-
-/**
- * Calls the Google Maps Places Text Search endpoint.
- * Requirements: 1.3
- *
- * @param {string} foodTerm
- * @param {number|undefined} lat
- * @param {number|undefined} lng
- * @param {string|undefined} area
- * @returns {Promise<Array<object>>} raw places array
- */
-async function searchPlaces(foodTerm, lat, lng, area) {
-  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
-  if (!apiKey) {
-    throw new Error("GOOGLE_MAPS_API_KEY is not configured");
-  }
-
-  // Build the query: combine food term with area or rely on location bias
-  const query = area ? `${foodTerm} in ${area}` : foodTerm;
-
-  const params = new URLSearchParams({
-    query,
-    key: apiKey,
-    type: "restaurant",
-  });
-
-  // Add location bias when coordinates are available
-  if (lat != null && lng != null) {
-    params.set("location", `${lat},${lng}`);
-    params.set("radius", "5000"); // 5 km radius
-  }
-
-  const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?${params.toString()}`;
-  const response = await fetch(url);
-
-  if (!response.ok) {
-    throw new Error(`Places API responded with HTTP ${response.status}`);
-  }
-
-  const data = await response.json();
-
-  if (data.status !== "OK" && data.status !== "ZERO_RESULTS") {
-    throw new Error(`Places API error: ${data.status} — ${data.error_message ?? ""}`);
-  }
-
-  return data.results ?? [];
-}
-
-/**
- * POST /api/cravings
- * Accepts { query, lat?, lng?, area? } and returns { results, message? } or { error }.
- * Requirements: 1.1, 1.4, 1.5, 6.1, 6.2, 6.3
- */
-app.post("/api/cravings", async (req, res) => {
-  // Requirement 6.3 — fail fast if the Maps key is absent
-  if (!process.env.GOOGLE_MAPS_API_KEY) {
-    return res.status(500).json({ error: "Server is not configured: GOOGLE_MAPS_API_KEY is missing." });
-  }
-
-  const { query, lat, lng, area } = req.body;
-
-  if (!query || typeof query !== "string" || query.trim() === "") {
-    return res.status(400).json({ error: "A non-empty query string is required." });
-  }
-
-  let parsed;
-  try {
-    // Requirement 1.2 — parse the natural-language query via Gemini
-    parsed = await parseQuery(query.trim());
-  } catch (err) {
-    // Requirement 6.2 — Gemini failure → 502
-    console.error("parseQuery error:", err);
-    return res.status(502).json({ error: `Failed to parse your query: ${err.message}` });
-  }
-
-  // Merge area from the request body if the parser didn't extract one
-  const resolvedArea = parsed.area ?? (typeof area === "string" && area.trim() ? area.trim() : undefined);
-
-  let rawPlaces;
-  try {
-    // Requirement 1.3 — call Places API
-    rawPlaces = await searchPlaces(parsed.foodTerm, lat, lng, resolvedArea);
-  } catch (err) {
-    // Requirement 6.1 — Places API failure → 502
-    console.error("searchPlaces error:", err);
-    return res.status(502).json({ error: `Failed to fetch restaurant data: ${err.message}` });
-  }
-
-  // Requirement 1.5 — empty results get an explanatory message
-  if (!rawPlaces.length) {
-    return res.status(200).json({ results: [], message: "No restaurants found for your search. Try broadening the search term or adjusting the price range." });
-  }
-
-  // Requirement 2.2 / 2.3 — apply price filter
-  const filtered = filterByPrice(rawPlaces, parsed.maxPricePkr);
-
-  // Requirement 1.4 — cap at 5, build CravingResult objects
-  const results = formatResults(filtered, lat, lng);
-
-  return res.status(200).json({ results });
-});
-
 // ─────────────────────────────────────────────────────────
 // Helper: search the web for recipes via Tavily
 // ─────────────────────────────────────────────────────────
@@ -646,6 +398,29 @@ app.post("/api/cravings", async (req, res) => {
   return res.status(200).json({ results });
 });
 
+/**
+ * Normalizes Gemini nutrition output to a plain object or drops invalid values.
+ * @param {unknown} raw
+ * @returns {{ calories: number, proteinG: number, carbsG: number, fatG: number, fiberG?: number }|undefined}
+ */
+function normalizeNutrition(raw) {
+  if (!raw || typeof raw !== "object") return undefined;
+  const o = /** @type {Record<string, unknown>} */ (raw);
+  const calories = Number(o.calories);
+  const proteinG = Number(o.proteinG ?? o.protein);
+  const carbsG = Number(o.carbsG ?? o.carbs);
+  const fatG = Number(o.fatG ?? o.fat);
+  const fiberRaw = o.fiberG ?? o.fiber;
+  const fiberG =
+    fiberRaw != null && fiberRaw !== "" ? Number(fiberRaw) : undefined;
+  if (![calories, proteinG, carbsG, fatG].every((x) => Number.isFinite(x))) {
+    return undefined;
+  }
+  const out = { calories, proteinG, carbsG, fatG };
+  if (fiberG != null && Number.isFinite(fiberG)) out.fiberG = fiberG;
+  return out;
+}
+
 // ─────────────────────────────────────────────────────────
 // POST /api/recommend
 // ─────────────────────────────────────────────────────────
@@ -692,12 +467,15 @@ INSTRUCTIONS:
 3. If the user's constraints are contradictory or impossible, suggest a simple realistic alternative.
 4. In the "references" field, include 2–4 source links. These MUST be real, working URLs — use the ones from the web search results above if relevant, or use well-known recipe sites (allrecipes.com, bbcgoodfood.com, seriouseats.com, etc.) that would logically have this recipe.
 5. Do NOT make up URLs. Only include URLs from the web search results provided above, or major well-known cookery websites.
+6. Estimate per-serving nutrition for ONE typical serving of the finished dish (numbers only, best-effort):
+   "nutrition": { "calories": <number>, "proteinG": <number>, "carbsG": <number>, "fatG": <number>, "fiberG": <optional number> }
 
 Respond EXACTLY in valid JSON. Do NOT use Markdown code fences. Use this schema:
 {
   "recipeName": "Name of the dish",
   "instructions": ["Step 1", "Step 2", "Step 3"],
   "isFallback": false,
+  "nutrition": { "calories": 0, "proteinG": 0, "carbsG": 0, "fatG": 0, "fiberG": 0 },
   "references": [
     { "title": "Source name", "url": "https://..." }
   ]
@@ -710,6 +488,10 @@ Respond EXACTLY in valid JSON. Do NOT use Markdown code fences. Use this schema:
     // Strip any accidental markdown fences
     responseText = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
     const jsonResponse = JSON.parse(responseText);
+
+    if (jsonResponse.nutrition != null) {
+      jsonResponse.nutrition = normalizeNutrition(jsonResponse.nutrition);
+    }
 
     // Attach the raw Tavily results as "foundOnline" for the UI to display
     jsonResponse.foundOnline = webRecipes;
@@ -724,8 +506,17 @@ Respond EXACTLY in valid JSON. Do NOT use Markdown code fences. Use this schema:
 });
 
 const PORT = 5000;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`✅ MealMind Backend running perfectly on http://localhost:${PORT}`);
+});
+
+server.on("error", (err) => {
+  if (err.code === "EADDRINUSE") {
+    console.error(`❌ Port ${PORT} is already in use. Stop the existing process and try again.`);
+  } else {
+    console.error("❌ Server error:", err.message);
+  }
+  process.exit(1);
 });
 
 // Export pure functions for unit / property-based testing
@@ -739,4 +530,5 @@ module.exports = {
   haversineKm,
   placePriceLevel,
   sortRawPlacesByDistance,
+  normalizeNutrition,
 };

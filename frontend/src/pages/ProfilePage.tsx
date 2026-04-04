@@ -1,5 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { db } from '../lib/firebase';
+import {
+  DEFAULT_DIETARY,
+  DEFAULT_PREFERENCES,
+  loadUserProfile,
+  saveUserDietary,
+  saveUserPreferences,
+  type UserDietary,
+  type UserPreferences,
+} from '../lib/firestoreUserData';
 
 /* ── Data ── */
 const CUISINES = ['Pakistani', 'Italian', 'East Asian', 'Middle Eastern', 'Fast casual', 'Thai', 'Mexican', 'American'];
@@ -16,13 +26,96 @@ type Tab = 'profile' | 'preferences' | 'dietary';
 export default function ProfilePage() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('profile');
-  const [selectedCuisines, setSelectedCuisines] = useState<string[]>(['Pakistani', 'Italian']);
-  const [selectedBudget, setSelectedBudget] = useState<string>('300–700 PKR');
-  const [selectedSkill, setSelectedSkill] = useState<string>('Intermediate');
-  const [selectedGoal, setSelectedGoal] = useState<string>('Eat well');
-  const [selectedSpice, setSelectedSpice] = useState<string>('Medium');
-  const [selectedAllergens, setSelectedAllergens] = useState<string[]>(['Peanuts', 'Shellfish', 'Dairy']);
-  const [selectedDiets, setSelectedDiets] = useState<string[]>(['Halal', 'High protein']);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [prefSaving, setPrefSaving] = useState(false);
+  const [dietSaving, setDietSaving] = useState(false);
+  const [prefMessage, setPrefMessage] = useState<string | null>(null);
+  const [dietMessage, setDietMessage] = useState<string | null>(null);
+
+  const [selectedCuisines, setSelectedCuisines] = useState<string[]>(DEFAULT_PREFERENCES.cuisines);
+  const [selectedBudget, setSelectedBudget] = useState<string>(DEFAULT_PREFERENCES.budget);
+  const [selectedSkill, setSelectedSkill] = useState<string>(DEFAULT_PREFERENCES.skill);
+  const [selectedGoal, setSelectedGoal] = useState<string>(DEFAULT_PREFERENCES.goal);
+  const [selectedSpice, setSelectedSpice] = useState<string>(DEFAULT_PREFERENCES.spice);
+  const [selectedAllergens, setSelectedAllergens] = useState<string[]>(DEFAULT_DIETARY.allergens);
+  const [selectedDiets, setSelectedDiets] = useState<string[]>(DEFAULT_DIETARY.diets);
+
+  useEffect(() => {
+    if (!user?.uid) {
+      setProfileLoading(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { preferences, dietary } = await loadUserProfile(user.uid);
+        if (cancelled) return;
+        setSelectedCuisines(preferences.cuisines);
+        setSelectedSpice(preferences.spice);
+        setSelectedBudget(preferences.budget);
+        setSelectedSkill(preferences.skill);
+        setSelectedGoal(preferences.goal);
+        setSelectedAllergens(dietary.allergens);
+        setSelectedDiets(dietary.diets);
+      } catch (e) {
+        console.error('[MealMind] loadUserProfile:', e);
+      } finally {
+        if (!cancelled) setProfileLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.uid]);
+
+  const buildPreferences = (): UserPreferences => ({
+    cuisines: selectedCuisines,
+    spice: selectedSpice,
+    budget: selectedBudget,
+    skill: selectedSkill,
+    goal: selectedGoal,
+  });
+
+  const buildDietary = (): UserDietary => ({
+    allergens: selectedAllergens,
+    diets: selectedDiets,
+  });
+
+  const handleSavePreferences = async () => {
+    if (!user?.uid || !db) {
+      setPrefMessage('Cloud sync requires Firebase configuration.');
+      return;
+    }
+    setPrefSaving(true);
+    setPrefMessage(null);
+    try {
+      await saveUserPreferences(user.uid, buildPreferences());
+      setPrefMessage('Saved to your account.');
+    } catch (e) {
+      console.error(e);
+      setPrefMessage('Could not save. Try again.');
+    } finally {
+      setPrefSaving(false);
+    }
+  };
+
+  const handleSaveDietary = async () => {
+    if (!user?.uid || !db) {
+      setDietMessage('Cloud sync requires Firebase configuration.');
+      return;
+    }
+    setDietSaving(true);
+    setDietMessage(null);
+    try {
+      await saveUserDietary(user.uid, buildDietary());
+      setDietMessage('Saved to your account.');
+    } catch (e) {
+      console.error(e);
+      setDietMessage('Could not save. Try again.');
+    } finally {
+      setDietSaving(false);
+    }
+  };
 
   const toggleArr = (arr: string[], val: string, setArr: (a: string[]) => void) => {
     setArr(arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val]);
@@ -199,6 +292,9 @@ export default function ProfilePage() {
         {/* ── Tab: Preferences ── */}
         {activeTab === 'preferences' && (
           <div className="prof-panel" role="tabpanel">
+            {profileLoading && (
+              <p style={{ color: 'var(--muted)', fontSize: '0.88rem', marginBottom: '1rem' }}>Loading your preferences…</p>
+            )}
             <div className="prof-section">
               <p className="prof-section-label">Favourite cuisines</p>
               <div className="prof-chip-grid">
@@ -267,8 +363,17 @@ export default function ProfilePage() {
             </div>
 
             <div className="prof-save-row">
-              <span className="prof-save-hint">Changes sync to your profile when you save.</span>
-              <button className="prof-btn-accent" disabled>Save preferences</button>
+              <span className="prof-save-hint">
+                {prefMessage ?? 'Stored in Firestore under your account.'}
+                {!db && ' Configure Firebase for cloud sync.'}
+              </span>
+              <button
+                className="prof-btn-accent"
+                disabled={prefSaving || profileLoading || !db}
+                onClick={() => void handleSavePreferences()}
+              >
+                {prefSaving ? 'Saving…' : 'Save preferences'}
+              </button>
             </div>
           </div>
         )}
@@ -276,6 +381,9 @@ export default function ProfilePage() {
         {/* ── Tab: Dietary & Allergies ── */}
         {activeTab === 'dietary' && (
           <div className="prof-panel" role="tabpanel">
+            {profileLoading && (
+              <p style={{ color: 'var(--muted)', fontSize: '0.88rem', marginBottom: '1rem' }}>Loading your restrictions…</p>
+            )}
             <div className="prof-section">
               <p className="prof-section-label">Allergies & intolerances</p>
               <div className="prof-chip-grid">
@@ -307,8 +415,17 @@ export default function ProfilePage() {
             </div>
 
             <div className="prof-save-row">
-              <span className="prof-save-hint">Hard constraints — applied to every suggestion.</span>
-              <button className="prof-btn-accent" disabled>Save restrictions</button>
+              <span className="prof-save-hint">
+                {dietMessage ?? 'Hard constraints — saved to your account.'}
+                {!db && ' Configure Firebase for cloud sync.'}
+              </span>
+              <button
+                className="prof-btn-accent"
+                disabled={dietSaving || profileLoading || !db}
+                onClick={() => void handleSaveDietary()}
+              >
+                {dietSaving ? 'Saving…' : 'Save restrictions'}
+              </button>
             </div>
           </div>
         )}
