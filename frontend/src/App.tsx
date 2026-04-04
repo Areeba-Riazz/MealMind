@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { SavedRecipesProvider } from './context/SavedRecipesContext';
+import { FoodLinksProvider } from './context/FoodLinksContext';
 import { PreferencesProvider } from './context/PreferencesContext';
 import RequireAuth from './components/RequireAuth';
 import AppShellLayout from './components/AppShellLayout';
@@ -14,12 +15,14 @@ import ProfilePage from './pages/ProfilePage';
 import SavedRecipesPage from './pages/SavedRecipesPage';
 import FoodLinksPage from './pages/FoodLinksPage';
 import OnboardingPage from './pages/OnboardingPage';
+import MealPlannerPage from './pages/MealPlannerPage';
 
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <SavedRecipesProvider>
+        <FoodLinksProvider>
           <PreferencesProvider>
             <Routes>
               <Route path="/" element={<LandingPage />} />
@@ -27,20 +30,23 @@ export default function App() {
               <Route path="/signup" element={<Signup />} />
 
               <Route element={<RequireAuth />}>
+                {/* Full-screen post-signup flow (no sidebar) */}
+                <Route path="/onboarding" element={<OnboardingPage />} />
                 <Route element={<AppShellLayout />}>
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/demo" element={<DemoPage />} />
                   <Route path="/cravings" element={<Cravings />} />
+                  <Route path="/meal-planner" element={<MealPlannerPage />} />
                   <Route path="/profile" element={<ProfilePage />} />
                   <Route path="/preferences" element={<Navigate to="/profile" replace />} />
                   <Route path="/dietary" element={<Navigate to="/profile" replace />} />
                   <Route path="/saved" element={<SavedRecipesPage />} />
                   <Route path="/food-links" element={<FoodLinksPage />} />
-                  <Route path="/onboarding" element={<OnboardingPage />} />
                 </Route>
               </Route>
             </Routes>
           </PreferencesProvider>
+        </FoodLinksProvider>
         </SavedRecipesProvider>
       </AuthProvider>
     </BrowserRouter>

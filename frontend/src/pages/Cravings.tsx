@@ -1,38 +1,84 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
+import { useGeolocation } from '../hooks/useGeolocation';
+import { useFoodLinks } from '../context/FoodLinksContext';
+import SkeletonCard from '../components/SkeletonCard';
+import CravingsMap from '../components/CravingsMap';
 
 interface CravingResult {
-  id: number;
+  id: string;
   name: string;
-  item: string;
-  distance: string;
-  price: string;
-  rating: string;
-  link: string;
-  emoji: string;
-  platform: string;
+  address: string;
+  distanceKm: number;
+  priceLevel: number;
+  rating: number;
+  orderLink: string;
+  lat: number | null;
+  lng: number | null;
 }
 
 export default function Cravings() {
   const [craving, setCraving] = useState('');
+  const [area, setArea] = useState('');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<CravingResult[] | null>(null);
+  const [emptyMessage, setEmptyMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSearch = (e: FormEvent) => {
+  const geo = useGeolocation();
+  const { links, addFoodLink, removeFoodLink } = useFoodLinks();
+
+  const handleSearch = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setResults(null);
-    setTimeout(() => {
-      setResults([
-        { id: 1, name: 'Daily Deli Co.',    item: 'Smash Beef Burger',       distance: '1.2 km',  price: 'Rs. 850', rating: '4.8', emoji: '🍔', platform: 'Foodpanda', link: 'https://www.foodpanda.pk' },
-        { id: 2, name: 'Johnny & Jugnu',    item: 'Wehshi Zinger Burger',    distance: '2.5 km',  price: 'Rs. 700', rating: '4.7', emoji: '🍗', platform: 'Foodpanda', link: 'https://www.foodpanda.pk' },
-        { id: 3, name: 'Local Street Cafe', item: 'Spicy Chicken Burger',    distance: '0.8 km',  price: 'Rs. 550', rating: '4.3', emoji: '🌶️', platform: 'WhatsApp',  link: 'https://wa.me/923000000000' },
-      ]);
+    setEmptyMessage(null);
+    setError(null);
+
+    try {
+      const body: Record<string, unknown> = { query: craving };
+
+      if (geo.lat != null && geo.lng != null) {
+        body.lat = geo.lat;
+        body.lng = geo.lng;
+      } else if (area.trim()) {
+        body.area = area.trim();
+      }
+
+      const res = await fetch('/api/cravings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error ?? 'Something went wrong. Please try again.');
+        return;
+      }
+
+      if (data.results.length === 0) {
+        setEmptyMessage(data.message ?? 'No restaurants found. Try broadening your search or adjusting the price range.');
+        setResults([]);
+        return;
+      }
+
+      setResults(data.results);
+    } catch {
+      setError('Could not reach the server. Please check your connection and try again.');
+    } finally {
       setLoading(false);
-    }, 1500);
+    }
   };
 
   const QUICK = ['🍔 Burger', '🍛 Biryani', '🌯 Wrap', '🍕 Pizza', '🍜 Ramen', '🥗 Healthy bowl'];
+
+  const hasCoords = geo.lat != null && geo.lng != null;
+  const geoReady = !geo.loading;
+  /** When GPS did not yield coordinates, show area field (body `area` or location in the craving via Gemini). */
+  const needsArea = geoReady && !hasCoords;
+  const canSubmit = !loading && geoReady && craving.trim() !== '';
 
   return (
     <>
@@ -72,7 +118,6 @@ export default function Cravings() {
         .crav-results { display:flex; flex-direction:column; gap:0.9rem; }
         .crav-result-card { background:rgba(22,22,22,0.7); border:1px solid rgba(255,255,255,0.07); border-radius:18px; padding:1.3rem 1.4rem; display:flex; align-items:center; gap:1.1rem; backdrop-filter:blur(12px); transition:border-color 0.2s, transform 0.2s; }
         .crav-result-card:hover { border-color:rgba(255,255,255,0.12); transform:translateY(-2px); }
-        .crav-result-emoji { font-size:2.2rem; flex-shrink:0; }
         .crav-result-body { flex:1; min-width:0; }
         .crav-result-item { font-family:'Syne',sans-serif; font-size:1rem; font-weight:700; margin:0 0 0.2rem; }
         .crav-result-rest { font-size:0.84rem; color:rgba(255,255,255,0.55); margin:0 0 0.45rem; font-weight:500; }
@@ -83,6 +128,12 @@ export default function Cravings() {
         .crav-order-btn:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(232,82,42,0.4); }
 
         .crav-disclaimer { text-align:center; font-size:0.75rem; color:rgba(255,255,255,0.25); margin-top:1.2rem; font-style:italic; }
+
+        /* Save button */
+        .crav-card-actions { display:flex; flex-direction:column; gap:0.4rem; align-items:flex-end; flex-shrink:0; }
+        .crav-save-btn { background:transparent; border:1px solid rgba(255,255,255,0.1); border-radius:100px; padding:0.35rem 0.7rem; font-size:0.82rem; cursor:pointer; transition:all 0.18s; color:rgba(255,255,255,0.4); white-space:nowrap; }
+        .crav-save-btn:hover { border-color:rgba(232,82,42,0.4); background:rgba(232,82,42,0.06); color:var(--accent); }
+        .crav-save-btn.is-saved { border-color:rgba(232,82,42,0.5); background:rgba(232,82,42,0.1); color:var(--accent); }
       `}</style>
 
       <div className="crav-wrap">
@@ -110,43 +161,119 @@ export default function Cravings() {
                 required
               />
             </div>
-            <button className="crav-submit" type="submit" disabled={loading}>
-              {loading ? 'Scanning restaurants near you... 📍' : 'Find My Craving 🍔'}
+
+            {/* Requirement 3.3 — area when geolocation unavailable or denied */}
+            {needsArea && (
+              <div className="crav-input-wrap">
+                <input
+                  className="crav-input"
+                  type="text"
+                  placeholder="City or area (optional if you already said it in the craving above)"
+                  value={area}
+                  onChange={(e) => setArea(e.target.value)}
+                  aria-label="City or area"
+                />
+              </div>
+            )}
+
+            <button
+              className="crav-submit"
+              type="submit"
+              disabled={!canSubmit}
+            >
+              {loading ? 'Scanning local restaurants... 📍' : 'Find My Craving 🍔'}
             </button>
           </form>
         </div>
 
+        {/* Requirement 4.1 — skeleton loaders while in flight */}
         {loading && (
-          <div className="crav-loading">
-            <div className="crav-spinner" />
-            Scanning local restaurants...
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
           </div>
         )}
 
-        {results && (
+        {/* Requirement 6.4 — error state */}
+        {error && !loading && (
+          <div style={{ padding: '1.2rem', borderRadius: '12px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', color: '#fca5a5', textAlign: 'center' }}>
+            ⚠️ {error}
+          </div>
+        )}
+
+        {/* Requirement 4.3 — empty state */}
+        {results !== null && results.length === 0 && !loading && (
+          <div style={{ padding: '1.5rem', borderRadius: '12px', background: 'rgba(255,255,255,0.04)', textAlign: 'center', color: 'var(--text-muted)' }}>
+            <p style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>🍽️</p>
+            <p>{emptyMessage}</p>
+          </div>
+        )}
+
+        {/* Requirement 4.2 — result cards + map (places with coordinates only on map) */}
+        {results && results.length > 0 && !loading && (
           <div>
             <p className="crav-results-label">Top matches near you</p>
             <div className="crav-results">
-              {results.map(res => (
+              {results.map((res) => {
+                const savedEntry = links.find((l) => l.href === res.orderLink);
+                const isSavedResult = !!savedEntry;
+                return (
                 <div key={res.id} className="crav-result-card">
-                  <span className="crav-result-emoji">{res.emoji}</span>
                   <div className="crav-result-body">
-                    <p className="crav-result-item">{res.item}</p>
-                    <p className="crav-result-rest">{res.name}</p>
+                    <p className="crav-result-item">{res.name}</p>
+                    <p className="crav-result-rest">📍 {res.address}</p>
                     <div className="crav-result-tags">
-                      <span className="crav-result-tag stars">★ {res.rating}</span>
-                      <span className="crav-result-tag">📍 {res.distance}</span>
-                      <span className="crav-result-tag">💰 {res.price}</span>
-                      <span className="crav-result-tag">📱 {res.platform}</span>
+                      {res.rating > 0 && <span className="crav-result-tag stars">★ {res.rating.toFixed(1)}</span>}
+                      {res.distanceKm > 0 && <span className="crav-result-tag">🗺️ {res.distanceKm.toFixed(1)} km</span>}
+                      {res.priceLevel > 0 && <span className="crav-result-tag">{'💰'.repeat(res.priceLevel)}</span>}
                     </div>
                   </div>
-                  <a href={res.link} target="_blank" rel="noopener noreferrer" className="crav-order-btn">
-                    Order ↗
-                  </a>
+                  <div className="crav-card-actions">
+                    <button
+                      className={`crav-save-btn${isSavedResult ? ' is-saved' : ''}`}
+                      title={isSavedResult ? 'Remove from saved' : 'Save restaurant'}
+                      onClick={() => {
+                        if (isSavedResult && savedEntry) {
+                          void removeFoodLink(savedEntry.id);
+                        } else {
+                          const q = craving.trim() || 'Local search';
+                          void addFoodLink({
+                            restaurant: res.name,
+                            item: q,
+                            area: res.address,
+                            distance: res.distanceKm > 0 ? `${res.distanceKm.toFixed(1)} km` : '—',
+                            price:
+                              res.priceLevel > 0
+                                ? `Tier ${res.priceLevel}`
+                                : '—',
+                            emoji: '🛵',
+                            platform: 'Google Maps',
+                            href: res.orderLink,
+                          });
+                        }
+                      }}
+                    >
+                      {isSavedResult ? '🔖 Saved' : '+ Save'}
+                    </button>
+                    <a
+                      href={res.orderLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="crav-order-btn"
+                    >
+                      Order ↗
+                    </a>
+                  </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
-            <p className="crav-disclaimer">* MVP demo — order links point to mock restaurant pages.</p>
+            <CravingsMap
+              userLat={hasCoords ? geo.lat : null}
+              userLng={hasCoords ? geo.lng : null}
+              restaurants={results}
+            />
           </div>
         )}
       </div>
