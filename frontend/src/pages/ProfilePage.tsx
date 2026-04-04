@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { usePreferences } from '../context/PreferencesContext';
+import type { UserPreferences } from '../context/PreferencesContext';
 
 /* ── Data ── */
 const CUISINES = ['Pakistani', 'Italian', 'East Asian', 'Middle Eastern', 'Fast casual', 'Thai', 'Mexican', 'American'];
@@ -15,17 +17,53 @@ type Tab = 'profile' | 'preferences' | 'dietary';
 
 export default function ProfilePage() {
   const { user } = useAuth();
+  const { preferences, setPreferences } = usePreferences();
+
   const [activeTab, setActiveTab] = useState<Tab>('profile');
-  const [selectedCuisines, setSelectedCuisines] = useState<string[]>(['Pakistani', 'Italian']);
-  const [selectedBudget, setSelectedBudget] = useState<string>('300–700 PKR');
-  const [selectedSkill, setSelectedSkill] = useState<string>('Intermediate');
-  const [selectedGoal, setSelectedGoal] = useState<string>('Eat well');
-  const [selectedSpice, setSelectedSpice] = useState<string>('Medium');
-  const [selectedAllergens, setSelectedAllergens] = useState<string[]>(['Peanuts', 'Shellfish', 'Dairy']);
-  const [selectedDiets, setSelectedDiets] = useState<string[]>(['Halal', 'High protein']);
+
+  // Preferences tab state — start from context (neutral/empty on first load)
+  const [selectedCuisines, setSelectedCuisines] = useState<string[]>(preferences.cuisines);
+  const [selectedBudget, setSelectedBudget] = useState<string>(preferences.budget);
+  const [selectedSkill, setSelectedSkill] = useState<string>(preferences.skill);
+  const [selectedGoal, setSelectedGoal] = useState<string>(preferences.goal);
+  const [selectedSpice, setSelectedSpice] = useState<string>(preferences.spice);
+  const [customPreferences, setCustomPreferences] = useState<string>(preferences.customPreferences);
+
+  // Dietary tab state
+  const [selectedAllergens, setSelectedAllergens] = useState<string[]>(preferences.allergens);
+  const [selectedDiets, setSelectedDiets] = useState<string[]>(preferences.diets);
+
+  const [prefSaved, setPrefSaved] = useState(false);
+  const [dietSaved, setDietSaved] = useState(false);
 
   const toggleArr = (arr: string[], val: string, setArr: (a: string[]) => void) => {
     setArr(arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val]);
+  };
+
+  const handleSavePreferences = () => {
+    const updated: UserPreferences = {
+      ...preferences,
+      cuisines: selectedCuisines,
+      spice: selectedSpice,
+      budget: selectedBudget,
+      skill: selectedSkill,
+      goal: selectedGoal,
+      customPreferences,
+    };
+    setPreferences(updated);
+    setPrefSaved(true);
+    setTimeout(() => setPrefSaved(false), 2500);
+  };
+
+  const handleSaveDietary = () => {
+    const updated: UserPreferences = {
+      ...preferences,
+      allergens: selectedAllergens,
+      diets: selectedDiets,
+    };
+    setPreferences(updated);
+    setDietSaved(true);
+    setTimeout(() => setDietSaved(false), 2500);
   };
 
   const tabs: { id: Tab; label: string; emoji: string }[] = [
@@ -85,6 +123,30 @@ export default function ProfilePage() {
         .prof-pill:hover { border-color: rgba(232,82,42,0.4); color: var(--text); }
         .prof-pill.on { border-color: var(--accent); background: rgba(232,82,42,0.12); color: var(--text); box-shadow: 0 2px 10px rgba(232,82,42,0.15); }
 
+        /* ── Custom text input ── */
+        .prof-custom-textarea {
+          width: 100%;
+          padding: 0.8rem 1rem;
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 13px;
+          color: #f2ede4;
+          font: 0.88rem 'DM Sans', sans-serif;
+          outline: none;
+          resize: vertical;
+          min-height: 80px;
+          line-height: 1.55;
+          transition: border-color 0.2s, box-shadow 0.2s;
+          box-sizing: border-box;
+        }
+        .prof-custom-textarea::placeholder { color: rgba(255,255,255,0.22); }
+        .prof-custom-textarea:focus {
+          border-color: rgba(232,82,42,0.5);
+          background: rgba(232,82,42,0.04);
+          box-shadow: 0 0 0 3px rgba(232,82,42,0.1);
+        }
+        .prof-custom-hint { font-size: 0.73rem; color: rgba(255,255,255,0.3); margin-top: 0.4rem; line-height: 1.4; }
+
         /* ── Action buttons ── */
         .prof-btn-row { display: flex; flex-wrap: wrap; gap: 0.6rem; }
         .prof-btn-ghost { font: 500 0.84rem 'DM Sans', sans-serif; cursor: pointer; padding: 0.5rem 1.05rem; border-radius: 100px; border: 1px solid rgba(255,255,255,0.13); background: transparent; color: var(--text); transition: all 0.18s; }
@@ -92,6 +154,7 @@ export default function ProfilePage() {
         .prof-btn-ghost:disabled { opacity: 0.45; cursor: not-allowed; }
         .prof-btn-accent { font: 700 0.88rem 'DM Sans', sans-serif; cursor: pointer; padding: 0.6rem 1.4rem; border-radius: 100px; border: none; background: var(--accent); color: #fff; box-shadow: 0 4px 18px rgba(232,82,42,0.3); transition: all 0.2s; }
         .prof-btn-accent:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(232,82,42,0.4); }
+        .prof-btn-accent.saved { background: #2ec27e; box-shadow: 0 4px 18px rgba(46,194,126,0.3); }
         .prof-btn-danger { font: 500 0.84rem 'DM Sans', sans-serif; cursor: pointer; padding: 0.5rem 1.05rem; border-radius: 100px; border: 1px solid rgba(255,80,80,0.35); background: rgba(255,80,80,0.07); color: #ff8a8a; transition: all 0.18s; }
         .prof-btn-danger:hover:not(:disabled) { background: rgba(255,80,80,0.13); }
         .prof-btn-danger:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -99,12 +162,24 @@ export default function ProfilePage() {
         /* ── Disclaimer ── */
         .prof-disclaimer { font-size: 0.78rem; color: var(--muted2); line-height: 1.55; padding: 0.8rem 1rem; border-radius: 12px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); margin-top: 1.2rem; }
 
-        /* ── Spice indicator ── */
-        .prof-spice-emoji { font-size: 1rem; }
-
         /* ── Save row ── */
         .prof-save-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.8rem; padding-top: 1.4rem; border-top: 1px solid rgba(255,255,255,0.06); margin-top: 1.6rem; }
         .prof-save-hint { font-size: 0.8rem; color: var(--muted2); }
+
+        /* ── Chat context note ── */
+        .prof-chat-note {
+          display: flex;
+          align-items: flex-start;
+          gap: 0.5rem;
+          padding: 0.7rem 0.9rem;
+          background: rgba(232,82,42,0.06);
+          border: 1px solid rgba(232,82,42,0.18);
+          border-radius: 12px;
+          font-size: 0.76rem;
+          color: rgba(232,82,42,0.8);
+          line-height: 1.45;
+          margin-bottom: 1.6rem;
+        }
 
         @media (max-width: 600px) {
           .prof-header { flex-direction: column; text-align: center; }
@@ -199,6 +274,10 @@ export default function ProfilePage() {
         {/* ── Tab: Preferences ── */}
         {activeTab === 'preferences' && (
           <div className="prof-panel" role="tabpanel">
+            <div className="prof-chat-note">
+              💬 Your preferences are used as context by the MealMind AI chatbot. Save them to personalise all suggestions.
+            </div>
+
             <div className="prof-section">
               <p className="prof-section-label">Favourite cuisines</p>
               <div className="prof-chip-grid">
@@ -219,7 +298,7 @@ export default function ProfilePage() {
                   <button
                     key={level}
                     className={`prof-pill${selectedSpice === level ? ' on' : ''}`}
-                    onClick={() => setSelectedSpice(level)}
+                    onClick={() => setSelectedSpice(prev => prev === level ? '' : level)}
                   >
                     {level === 'Mild' ? '🌿' : level === 'Medium' ? '🌶️' : level === 'Hot' ? '🔥' : '💀'} {level}
                   </button>
@@ -234,7 +313,7 @@ export default function ProfilePage() {
                   <button
                     key={b}
                     className={`prof-pill${selectedBudget === b ? ' on' : ''}`}
-                    onClick={() => setSelectedBudget(b)}
+                    onClick={() => setSelectedBudget(prev => prev === b ? '' : b)}
                   >{b}</button>
                 ))}
               </div>
@@ -247,7 +326,7 @@ export default function ProfilePage() {
                   <button
                     key={s}
                     className={`prof-pill${selectedSkill === s ? ' on' : ''}`}
-                    onClick={() => setSelectedSkill(s)}
+                    onClick={() => setSelectedSkill(prev => prev === s ? '' : s)}
                   >{s}</button>
                 ))}
               </div>
@@ -260,15 +339,36 @@ export default function ProfilePage() {
                   <button
                     key={g}
                     className={`prof-pill${selectedGoal === g ? ' on' : ''}`}
-                    onClick={() => setSelectedGoal(g)}
+                    onClick={() => setSelectedGoal(prev => prev === g ? '' : g)}
                   >{g}</button>
                 ))}
               </div>
             </div>
 
+            <div className="prof-section">
+              <p className="prof-section-label">Additional preferences (custom)</p>
+              <textarea
+                className="prof-custom-textarea"
+                placeholder="Describe anything else — e.g. &quot;I prefer quick meals under 20 min&quot;, &quot;I love garlic and ginger&quot;, &quot;avoid oily food&quot;, &quot;student in hostel with limited equipment&quot;..."
+                value={customPreferences}
+                onChange={e => setCustomPreferences(e.target.value)}
+                rows={3}
+              />
+              <p className="prof-custom-hint">
+                This text is sent directly to the AI chatbot as extra context. Be as specific as you want.
+              </p>
+            </div>
+
             <div className="prof-save-row">
-              <span className="prof-save-hint">Changes sync to your profile when you save.</span>
-              <button className="prof-btn-accent" disabled>Save preferences</button>
+              <span className="prof-save-hint">
+                {prefSaved ? '✓ Preferences saved — chatbot updated!' : 'Saved preferences are used by the AI chatbot.'}
+              </span>
+              <button
+                className={`prof-btn-accent${prefSaved ? ' saved' : ''}`}
+                onClick={handleSavePreferences}
+              >
+                {prefSaved ? '✓ Saved!' : 'Save preferences'}
+              </button>
             </div>
           </div>
         )}
@@ -276,6 +376,10 @@ export default function ProfilePage() {
         {/* ── Tab: Dietary & Allergies ── */}
         {activeTab === 'dietary' && (
           <div className="prof-panel" role="tabpanel">
+            <div className="prof-chat-note">
+              💬 Saved restrictions are strictly respected by the MealMind AI chatbot — it will never suggest food that conflicts with them.
+            </div>
+
             <div className="prof-section">
               <p className="prof-section-label">Allergies & intolerances</p>
               <div className="prof-chip-grid">
@@ -307,8 +411,15 @@ export default function ProfilePage() {
             </div>
 
             <div className="prof-save-row">
-              <span className="prof-save-hint">Hard constraints — applied to every suggestion.</span>
-              <button className="prof-btn-accent" disabled>Save restrictions</button>
+              <span className="prof-save-hint">
+                {dietSaved ? '✓ Restrictions saved — chatbot updated!' : 'Hard constraints — applied to every suggestion.'}
+              </span>
+              <button
+                className={`prof-btn-accent${dietSaved ? ' saved' : ''}`}
+                onClick={handleSaveDietary}
+              >
+                {dietSaved ? '✓ Saved!' : 'Save restrictions'}
+              </button>
             </div>
           </div>
         )}
