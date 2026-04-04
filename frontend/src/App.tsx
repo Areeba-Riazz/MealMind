@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { SavedRecipesProvider } from './context/SavedRecipesContext';
 import RequireAuth from './components/RequireAuth';
 import AppShellLayout from './components/AppShellLayout';
 import LandingPage from './pages/LandingPage';
@@ -17,6 +18,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <SavedRecipesProvider>
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
@@ -36,6 +38,7 @@ export default function App() {
             </Route>
           </Route>
         </Routes>
+        </SavedRecipesProvider>
       </AuthProvider>
     </BrowserRouter>
   );
