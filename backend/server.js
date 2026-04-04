@@ -18,6 +18,37 @@ if (!process.env.GOOGLE_MAPS_API_KEY) {
 const app = express();
 app.use(express.json());
 
+/**
+ * Gemini expects system_instruction as a Content object (parts), not a bare string.
+ * @param {string} text
+ * @returns {{ parts: { text: string }[] }}
+ */
+function systemInstructionContent(text) {
+  return { parts: [{ text }] };
+}
+
+/**
+ * Short, safe message for API clients — full error stays in server logs.
+ * @param {unknown} err
+ * @returns {string}
+ */
+function userFacingChatError(err) {
+  const raw = err && typeof err === "object" && "message" in err ? String(err.message) : String(err);
+  if (/400|Bad Request|INVALID_ARGUMENT|system_instruction/i.test(raw)) {
+    return "We couldn't process that request. Try again or shorten your message.";
+  }
+  if (/429|RESOURCE_EXHAUSTED|quota|rate limit/i.test(raw)) {
+    return "Too many requests. Please wait a moment and try again.";
+  }
+  if (/403|PERMISSION_DENIED|API key|API_KEY_INVALID/i.test(raw)) {
+    return "Chat is temporarily unavailable.";
+  }
+  if (/503|UNAVAILABLE|overloaded|Deadline/i.test(raw)) {
+    return "The assistant is busy. Please try again in a moment.";
+  }
+  return "Something went wrong. Please try again.";
+}
+
 const ALLOWED_ORIGINS = [
   "http://localhost:5173",
   "http://localhost:5174",
@@ -559,26 +590,31 @@ IMPORTANT RULES:
 - Be concise — 2-4 short paragraphs max unless listing steps or ingredients
 - Use emojis naturally but sparingly${prefContext}`;
 
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+      systemInstruction: systemInstructionContent(systemPrompt),
+    });
 
     const chat = model.startChat({
-      history: messages.slice(0, -1).map(m => ({
+      history: messages.slice(0, -1).map((m) => ({
         role: m.role === "assistant" ? "model" : "user",
         parts: [{ text: m.content }],
       })),
-      systemInstruction: systemPrompt,
     });
 
     const lastMessage = messages[messages.length - 1];
-    const result = await chat.sendMessage(lastMessage.content);
+    if (!lastMessage || typeof lastMessage.content !== "string") {
+      return res.status(400).json({ error: "Each message must include text content." });
+    }
+
+    const result = await chat.sendMessage(lastMessage.content.trim());
     const responseText = result.response.text();
 
     return res.status(200).json({ reply: responseText });
 
   } catch (error) {
     console.error("Chatbot AI Error:", error);
-    const errorMessage = error.message || "Unknown error occurred.";
-    return res.status(500).json({ error: `Chat failed: ${errorMessage}` });
+    return res.status(500).json({ error: userFacingChatError(error) });
   }
 });
 
