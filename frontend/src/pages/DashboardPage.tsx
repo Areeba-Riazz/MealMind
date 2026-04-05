@@ -4,7 +4,6 @@ import { useAuth } from '../context/AuthContext';
 import { useSavedRecipes } from '../context/SavedRecipesContext';
 import { useFoodLinks } from '../context/FoodLinksContext';
 import { usePlannedMealsThisWeek } from '../hooks/usePlannedMealsThisWeek';
-import NpsModal from '../components/NpsModal';
 
 const QUICK_ACTIONS = [
   { to: '/demo', label: 'AI Chef', emoji: '👨‍🍳', desc: 'Get a recipe from your fridge', accent: true },
@@ -150,8 +149,6 @@ export default function DashboardPage() {
           ))}
         </div>
       </div>
-      
-      <NpsModal />
     </>
   );
 }
