@@ -1,6 +1,7 @@
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import ChatWidget from './ChatWidget';
+import NpsModal from './NpsModal';
 
 const PAGE_TITLES: Record<string, { title: string; sub: string }> = {
   '/dashboard': { title: 'Dashboard', sub: 'Your meal command center' },
@@ -120,6 +121,9 @@ export default function AppShellLayout() {
 
       {/* Floating chat widget — rendered outside the scrollable main so it's always visible */}
       <ChatWidget />
+
+      {/* Global NPS popup — appears after 5s if not submitted */}
+      <NpsModal />
     </>
   );
 }

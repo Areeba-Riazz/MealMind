@@ -11,14 +11,26 @@ export default function NpsModal() {
   const [hasDismissed, setHasDismissed] = useState(false);
 
   useEffect(() => {
+    // Debug logging
+    console.log('NpsModal mounted. Check storage or add ?nps=true to URL to force show.');
+
+    // FORCE BYPASS for debugging
+    if (window.location.search.includes('nps=true')) {
+      console.log('NPS Bypass: Force opening modal');
+      setIsOpen(true);
+      return;
+    }
+
     // Only show once
     if (localStorage.getItem('mealmind_nps_submitted')) {
-      setHasDismissed(true);
       return;
     }
     const timer = setTimeout(() => {
-      if (!hasDismissed) setIsOpen(true);
-    }, 15000); // 15s after entering dashboard
+      if (!hasDismissed) {
+        console.log('NpsModal: Triggering after 5 seconds');
+        setIsOpen(true);
+      }
+    }, 5000); 
 
     return () => clearTimeout(timer);
   }, [hasDismissed]);
