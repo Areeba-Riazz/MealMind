@@ -27,10 +27,10 @@ export default function NpsModal() {
     }
     const timer = setTimeout(() => {
       if (!hasDismissed) {
-        console.log('NpsModal: Triggering after 5 seconds');
+        console.log('NpsModal: Triggering after 30 seconds');
         setIsOpen(true);
       }
-    }, 5000); 
+    }, 30000);
 
     return () => clearTimeout(timer);
   }, [hasDismissed]);
@@ -76,7 +76,7 @@ export default function NpsModal() {
               <span>Not likely</span>
               <span>Very likely</span>
             </div>
-            
+
             <textarea
               className="nps-feedback"
               placeholder="What could we improve? (Optional)"
@@ -84,9 +84,9 @@ export default function NpsModal() {
               onChange={e => setFeedback(e.target.value)}
               rows={2}
             />
-            
-            <button 
-              className="nps-submit" 
+
+            <button
+              className="nps-submit"
               disabled={score === null}
               onClick={handleSubmit}
             >

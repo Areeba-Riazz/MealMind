@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { usePreferences } from '../context/PreferencesContext';
-import { db } from '../lib/firebase';
+import { auth, db } from '../lib/firebase';
+import { updateProfile } from 'firebase/auth';
 import {
   DEFAULT_DIETARY,
   DEFAULT_PREFERENCES,
@@ -25,11 +26,16 @@ const DIETS = ['Halal', 'Vegetarian', 'Vegan', 'Gluten-free', 'Dairy-free', 'Hig
 type Tab = 'profile' | 'preferences' | 'dietary';
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { setPreferences } = usePreferences();
 
   const [activeTab, setActiveTab] = useState<Tab>('profile');
   const [profileLoading, setProfileLoading] = useState(true);
+
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [tempName, setTempName] = useState(user?.displayName ?? '');
+  const [nameUpdating, setNameUpdating] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
   const [prefSaving, setPrefSaving] = useState(false);
   const [dietSaving, setDietSaving] = useState(false);
   const [prefMessage, setPrefMessage] = useState<string | null>(null);
@@ -157,6 +163,27 @@ export default function ProfilePage() {
     }
   };
 
+  const handleUpdateName = async () => {
+    if (!auth?.currentUser) return;
+    const trimmed = tempName.trim();
+    if (!trimmed) {
+      setNameError('Name cannot be empty.');
+      return;
+    }
+    setNameUpdating(true);
+    setNameError(null);
+    try {
+      await updateProfile(auth.currentUser, { displayName: trimmed });
+      refreshUser();
+      setIsEditingName(false);
+    } catch (e) {
+      console.error('[MealMind] updateProfile:', e);
+      setNameError('Failed to update name. Try again.');
+    } finally {
+      setNameUpdating(false);
+    }
+  };
+
   const toggleArr = (arr: string[], val: string, setArr: (a: string[]) => void) => {
     setArr(arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val]);
   };
@@ -254,6 +281,39 @@ export default function ProfilePage() {
         .prof-btn-danger:hover:not(:disabled) { background: rgba(255,80,80,0.13); }
         .prof-btn-danger:disabled { opacity: 0.45; cursor: not-allowed; }
 
+        /* ── Edit name elements ── */
+        .prof-name-input {
+          flex: 1;
+          background: rgba(255,255,255,0.06);
+          border: 1px solid rgba(232,82,42,0.3);
+          border-radius: 8px;
+          padding: 0.4rem 0.7rem;
+          color: #f2ede4;
+          font: 600 0.9rem 'DM Sans', sans-serif;
+          outline: none;
+        }
+        .prof-name-row { display: flex; align-items: center; gap: 0.7rem; flex: 1; }
+        .prof-edit-btn {
+          font: 600 0.72rem 'DM Sans', sans-serif;
+          background: rgba(255,255,255,0.06);
+          border: 1px solid rgba(255,255,255,0.1);
+          color: var(--muted);
+          padding: 0.3rem 0.6rem;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .prof-edit-btn:hover { border-color: rgba(232,82,42,0.4); color: var(--text); }
+        .prof-save-mini {
+          font: 700 0.72rem 'DM Sans', sans-serif;
+          background: var(--accent);
+          border: none;
+          color: #fff;
+          padding: 0.35rem 0.8rem;
+          border-radius: 6px;
+          cursor: pointer;
+        }
+
         /* ── Disclaimer ── */
         .prof-disclaimer { font-size: 0.78rem; color: var(--muted2); line-height: 1.55; padding: 0.8rem 1rem; border-radius: 12px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); margin-top: 1.2rem; }
 
@@ -319,8 +379,36 @@ export default function ProfilePage() {
               <div className="prof-info-card">
                 <div className="prof-info-row">
                   <span className="prof-info-key">Display name</span>
-                  <span className="prof-info-val">{user?.displayName ?? <span className="muted">Not set</span>}</span>
+                  {isEditingName ? (
+                    <div className="prof-name-row">
+                      <input
+                        className="prof-name-input"
+                        value={tempName}
+                        onChange={e => setTempName(e.target.value)}
+                        placeholder="Enter your name"
+                        autoFocus
+                      />
+                      <button className="prof-save-mini" onClick={handleUpdateName} disabled={nameUpdating}>
+                        {nameUpdating ? '...' : 'Save'}
+                      </button>
+                      <button className="prof-edit-btn" onClick={() => { setIsEditingName(false); setTempName(user?.displayName ?? ''); }} disabled={nameUpdating}>
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="prof-name-row">
+                      <span className="prof-info-val">{user?.displayName ?? <span className="muted">Not set</span>}</span>
+                      <button className="prof-edit-btn" onClick={() => { setIsEditingName(true); setTempName(user?.displayName ?? ''); }}>
+                        Edit
+                      </button>
+                    </div>
+                  )}
                 </div>
+                {nameError && (
+                  <div style={{ padding: '0 1.15rem 0.8rem', color: '#ff8a8a', fontSize: '0.75rem' }}>
+                    {nameError}
+                  </div>
+                )}
                 <div className="prof-info-row">
                   <span className="prof-info-key">Email</span>
                   <span className="prof-info-val">{user?.email ?? '—'}</span>
