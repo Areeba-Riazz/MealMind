@@ -25,7 +25,6 @@ const {
   sanitiseWebsite,
   extractPhones,
   foodpandaSearchUrl,
-  uberEatsSearchUrl,
 } = require("./server.js");
 
 // ---------------------------------------------------------------------------
@@ -194,13 +193,11 @@ describe("formatResults", () => {
     }
   });
 
-  it("builds valid foodpandaLink and uberEatsLink for each result", () => {
+  it("builds valid foodpandaLink for each result", () => {
     const results = formatResults(makePlaces(3));
     for (const r of results) {
       assert.doesNotThrow(() => new URL(r.foodpandaLink), `Invalid foodpandaLink: ${r.foodpandaLink}`);
-      assert.doesNotThrow(() => new URL(r.uberEatsLink), `Invalid uberEatsLink: ${r.uberEatsLink}`);
       assert.ok(r.foodpandaLink.includes("foodpanda.pk"));
-      assert.ok(r.uberEatsLink.includes("ubereats.com"));
     }
   });
 
@@ -315,8 +312,8 @@ describe("formatResults", () => {
     );
   });
 
-  // Property: foodpandaLink and uberEatsLink are always valid URLs
-  it("Property: platform search links are always valid URLs", () => {
+  // Property: foodpandaLink is always a valid URL
+  it("Property: platform search link is always a valid URL", () => {
     fc.assert(
       fc.property(
         fc.array(
@@ -331,7 +328,6 @@ describe("formatResults", () => {
           const results = formatResults(places);
           for (const r of results) {
             assert.doesNotThrow(() => new URL(r.foodpandaLink));
-            assert.doesNotThrow(() => new URL(r.uberEatsLink));
           }
         }
       ),
@@ -524,12 +520,12 @@ describe("foodpandaSearchUrl", () => {
 
   it("contains the restaurant name in the query string", () => {
     const url = new URL(foodpandaSearchUrl("Burger Lab"));
-    assert.equal(url.searchParams.get("q"), "Burger Lab");
+    assert.equal(url.searchParams.get("query"), "Burger Lab");
   });
 
   it("URL-encodes special characters in the name", () => {
     const url = new URL(foodpandaSearchUrl("Café & Grill"));
-    assert.ok(url.searchParams.get("q") === "Café & Grill");
+    assert.ok(url.searchParams.get("query") === "Café & Grill");
   });
 
   it("Property: always returns a valid foodpanda.pk URL", () => {
@@ -538,28 +534,6 @@ describe("foodpandaSearchUrl", () => {
         const url = foodpandaSearchUrl(name);
         assert.doesNotThrow(() => new URL(url));
         assert.ok(new URL(url).hostname.includes("foodpanda.pk"));
-      }),
-      { numRuns: 200 }
-    );
-  });
-});
-
-describe("uberEatsSearchUrl", () => {
-  it("returns a valid URL", () => {
-    assert.doesNotThrow(() => new URL(uberEatsSearchUrl("Burger Lab")));
-  });
-
-  it("contains the restaurant name in the query string", () => {
-    const url = new URL(uberEatsSearchUrl("Burger Lab"));
-    assert.equal(url.searchParams.get("q"), "Burger Lab");
-  });
-
-  it("Property: always returns a valid ubereats.com URL", () => {
-    fc.assert(
-      fc.property(fc.string(), (name) => {
-        const url = uberEatsSearchUrl(name);
-        assert.doesNotThrow(() => new URL(url));
-        assert.ok(new URL(url).hostname.includes("ubereats.com"));
       }),
       { numRuns: 200 }
     );

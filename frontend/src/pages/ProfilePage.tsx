@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { usePreferences } from '../context/PreferencesContext';
 import { auth, db } from '../lib/firebase';
-import { updateProfile } from 'firebase/auth';
+import { updateProfile, updatePassword, deleteUser } from 'firebase/auth';
 import {
   DEFAULT_DIETARY,
   DEFAULT_PREFERENCES,
   loadUserProfile,
   saveUserDietary,
   saveUserPreferences,
+  deleteUserDoc,
   type UserDietary,
   type UserPreferences,
 } from '../lib/firestoreUserData';
@@ -23,11 +25,12 @@ const SPICE = ['Mild', 'Medium', 'Hot', 'Extra Hot'] as const;
 const ALLERGENS = ['Peanuts', 'Tree nuts', 'Shellfish', 'Dairy', 'Eggs', 'Wheat / Gluten', 'Soy', 'Fish'];
 const DIETS = ['Halal', 'Vegetarian', 'Vegan', 'Gluten-free', 'Dairy-free', 'High protein', 'Low carb', 'Diabetic-friendly'];
 
-type Tab = 'profile' | 'preferences' | 'dietary';
+type Tab = 'profile' | 'preferences' | 'dietary' | 'billing';
 
 export default function ProfilePage() {
   const { user, refreshUser } = useAuth();
   const { setPreferences } = usePreferences();
+  const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<Tab>('profile');
   const [profileLoading, setProfileLoading] = useState(true);
@@ -49,6 +52,27 @@ export default function ProfilePage() {
   const [customPreferences, setCustomPreferences] = useState<string>(DEFAULT_PREFERENCES.customPreferences ?? '');
   const [selectedAllergens, setSelectedAllergens] = useState<string[]>(DEFAULT_DIETARY.allergens);
   const [selectedDiets, setSelectedDiets] = useState<string[]>(DEFAULT_DIETARY.diets);
+  const [customRestrictions, setCustomRestrictions] = useState<string>(DEFAULT_DIETARY.customRestrictions ?? '');
+  const [nutritionalTargets, setNutritionalTargets] = useState<{label: string, value: string}[]>(DEFAULT_DIETARY.targets ?? []);
+
+  const [securityMessage, setSecurityMessage] = useState<string | null>(null);
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [isPasswordFormOpen, setIsPasswordFormOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  const [dangerMessage, setDangerMessage] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
+  const [currentPlan, setCurrentPlan] = useState('Free tier');
+
+  // Billing states
+  const [cardName, setCardName] = useState('');
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardExp, setCardExp] = useState('');
+  const [cardCvv, setCardCvv] = useState('');
+  const [isCardExpanded, setIsCardExpanded] = useState(false);
 
   useEffect(() => {
     if (!user?.uid) {
@@ -68,6 +92,8 @@ export default function ProfilePage() {
         setCustomPreferences(loadedPrefs.customPreferences ?? '');
         setSelectedAllergens(dietary.allergens);
         setSelectedDiets(dietary.diets);
+        setCustomRestrictions(dietary.customRestrictions ?? '');
+        setNutritionalTargets(dietary.targets ?? []);
         setPreferences({
           cuisines: loadedPrefs.cuisines,
           spice: loadedPrefs.spice,
@@ -101,6 +127,8 @@ export default function ProfilePage() {
   const buildDietary = (): UserDietary => ({
     allergens: selectedAllergens,
     diets: selectedDiets,
+    customRestrictions,
+    targets: nutritionalTargets,
   });
 
   const handleSavePreferences = async () => {
@@ -184,6 +212,92 @@ export default function ProfilePage() {
     }
   };
 
+  const handleUpdatePassword = async () => {
+    if (!auth?.currentUser) return;
+    setSecurityMessage(null);
+
+    const pass = newPassword.trim();
+    if (pass.length < 8) {
+      setSecurityMessage('Password must be at least 8 characters.');
+      return;
+    }
+    if (pass !== confirmPassword.trim()) {
+      setSecurityMessage('Passwords do not match.');
+      return;
+    }
+
+    setIsUpdatingPassword(true);
+    try {
+      await updatePassword(auth.currentUser, pass);
+      setSecurityMessage('Password updated successfully!');
+      setIsPasswordFormOpen(false);
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (e: any) {
+      console.error('[MealMind] updatePassword:', e);
+      if (e.code === 'auth/requires-recent-login') {
+        setSecurityMessage('For security, please log out and back in before changing your password.');
+      } else {
+        setSecurityMessage('Failed to update password. Try again.');
+      }
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!auth?.currentUser || !user?.uid) return;
+
+    const confirmed = window.confirm(
+      'Are you absolutely sure you want to delete your account? This will permanently remove your dietary preferences and saved recipes.'
+    );
+    if (!confirmed) return;
+
+    setIsDeleting(true);
+    setDangerMessage(null);
+    try {
+      // 1. Delete Firestore user record
+      try {
+        await deleteUserDoc(user.uid);
+      } catch (fsErr) {
+        console.warn('[MealMind] Firestore cleanup failed (non-fatal):', fsErr);
+      }
+
+      // 2. Delete Auth user
+      await deleteUser(auth.currentUser);
+
+      // 3. Goodbye
+      navigate('/');
+    } catch (e: any) {
+      console.error('[MealMind] deleteUser:', e);
+      if (e.code === 'auth/requires-recent-login') {
+        setDangerMessage('For security, please log out and back in before deleting your account.');
+      } else {
+        setDangerMessage('Delete failed. Please try again or contact support.');
+      }
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const getCompletionData = () => {
+    const items = [
+      { id: 'name', label: 'Display Name', weight: 20, done: !!user?.displayName },
+      { id: 'cuisines', label: 'Cuisines', weight: 15, done: selectedCuisines.length > 0 },
+      { id: 'spice', label: 'Spice Level', weight: 10, done: !!selectedSpice },
+      { id: 'budget', label: 'Default Budget', weight: 15, done: !!selectedBudget },
+      { id: 'skill', label: 'Cooking Skill', weight: 15, done: !!selectedSkill },
+      { id: 'goal', label: 'Health Goal', weight: 15, done: !!selectedGoal },
+      { id: 'dietary', label: 'Diet/Allergies', weight: 5, done: selectedAllergens.length > 0 || selectedDiets.length > 0 || !!customRestrictions },
+      { id: 'targets', label: 'Nutritional Targets', weight: 5, done: nutritionalTargets.length > 0 },
+    ];
+    const score = items.reduce((acc, it) => acc + (it.done ? it.weight : 0), 0);
+    const todo = items.filter(it => !it.done).map(it => it.label);
+    return { score, todo };
+  };
+
+  const { score: completionScore, todo: missingItems } = getCompletionData();
+
   const toggleArr = (arr: string[], val: string, setArr: (a: string[]) => void) => {
     setArr(arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val]);
   };
@@ -192,7 +306,20 @@ export default function ProfilePage() {
     { id: 'profile', label: 'Profile', emoji: '👤' },
     { id: 'preferences', label: 'Preferences', emoji: '⚙️' },
     { id: 'dietary', label: 'Diet & Allergies', emoji: '🥗' },
+    { id: 'billing', label: 'Payments', emoji: '💳' },
   ];
+
+  const addTarget = () => {
+    setNutritionalTargets(prev => [...prev, { label: '', value: '' }]);
+  };
+
+  const removeTarget = (index: number) => {
+    setNutritionalTargets(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateTarget = (index: number, field: 'label' | 'value', val: string) => {
+    setNutritionalTargets(prev => prev.map((t, i) => i === index ? { ...t, [field]: val } : t));
+  };
 
   const initials = (user?.displayName?.split(' ').map(w => w[0]).join('') ?? user?.email?.[0] ?? '?').toUpperCase();
 
@@ -320,6 +447,39 @@ export default function ProfilePage() {
         /* ── Save row ── */
         .prof-save-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.8rem; padding-top: 1.4rem; border-top: 1px solid rgba(255,255,255,0.06); margin-top: 1.6rem; }
         .prof-save-hint { font-size: 0.8rem; color: var(--muted2); }
+        
+        /* ── Completion list ── */
+        .prof-todo-list { list-style: none; padding: 0; margin: 1rem 0 0; display: grid; gap: 0.5rem; }
+        .prof-todo-item { display: flex; align-items: center; gap: 0.6rem; font-size: 0.78rem; color: var(--muted); }
+        .prof-todo-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); opacity: 0.6; }
+
+        /* ── Billing ── */
+        .bill-card { background: var(--input-bg); border: 1px solid var(--border2); border-radius: 18px; padding: 1.5rem; margin-bottom: 1.5rem; transition: all 0.3s; }
+        .bill-card:hover { border-color: rgba(232,82,42,0.25); transform: translateY(-2px); }
+        .bill-card-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.2rem; }
+        .bill-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted2); margin-bottom: 0.3rem; }
+        .bill-val { font-size: 1.1rem; font-weight: 700; color: var(--text); }
+        .bill-input-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .bill-input-wrap { display: flex; flex-direction: column; gap: 0.4rem; }
+        .bill-input { background: rgba(255,255,255,0.03); border: 1px solid var(--border2); border-radius: 10px; padding: 0.7rem 0.9rem; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 0.88rem; outline: none; transition: border-color 0.2s; }
+        .bill-input:focus { border-color: rgba(232,82,42,0.5); }
+
+        /* ── Plan Modal ── */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 2000; animation: modalFadeIn 0.3s ease; }
+        @keyframes modalFadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .modal-box { background: var(--surface); width: 95%; max-width: 800px; max-height: 90vh; border-radius: 28px; border: 1px solid var(--border2); overflow-y: auto; position: relative; padding: 2.5rem 2rem; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); color: var(--text); }
+        .modal-close { position: absolute; top: 1.5rem; right: 1.5rem; width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border2); background: transparent; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+        .modal-close:hover { background: var(--glass-hover); color: var(--text); }
+        .plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; margin-top: 2rem; }
+        .plan-card { background: var(--input-bg); border: 1px solid var(--border2); border-radius: 22px; padding: 1.8rem; display: flex; flex-direction: column; transition: all 0.3s; position: relative; }
+        .plan-card.active { border-color: var(--accent); background: rgba(232,82,42,0.08); }
+        .plan-card.active::before { content: 'Current Plan'; position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: var(--accent); color: white; padding: 3px 12px; border-radius: 100px; font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+        .plan-title { font-family: 'Syne', sans-serif; font-size: 1.3rem; font-weight: 800; margin-bottom: 0.5rem; color: var(--text); }
+        .plan-price { font-size: 1.8rem; font-weight: 800; margin-bottom: 1.2rem; color: var(--text); }
+        .plan-price span { font-size: 0.9rem; color: var(--muted); font-weight: 400; }
+        .plan-features { list-style: none; padding: 0; margin: 0 0 1.8rem; flex: 1; }
+        .plan-feature { display: flex; align-items: center; gap: 0.6rem; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.65rem; }
+        .plan-feature b { color: var(--accent); }
 
         /* ── Chat context note ── */
         .prof-chat-note {
@@ -342,6 +502,14 @@ export default function ProfilePage() {
           .prof-tab { font-size: 0.78rem; padding: 0.6rem 0.5rem; }
           .prof-panel { padding: 1.4rem 1.2rem; }
         }
+
+        .target-item { display: flex; gap: 0.8rem; align-items: center; margin-bottom: 0.8rem; animation: profFadeUp 0.3s ease both; }
+        .target-input-label { flex: 1.2; background: rgba(255,255,255,0.03); border: 1px solid var(--border2); border-radius: 10px; padding: 0.55rem 0.8rem; color: var(--text); font-size: 0.85rem; outline: none; }
+        .target-input-val { flex: 1; background: rgba(255,255,255,0.03); border: 1px solid var(--border2); border-radius: 10px; padding: 0.55rem 0.8rem; color: var(--accent); font-weight: 600; font-size: 0.85rem; outline: none; }
+        .target-remove { background: rgba(255,80,80,0.1); border: 1px solid rgba(255,80,80,0.2); color: #ff8a8a; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; }
+        .target-remove:hover { background: rgba(255,80,80,0.2); transform: scale(1.05); }
+        .target-add-btn { background: rgba(46,194,126,0.1); border: 1px solid rgba(46,194,126,0.2); color: #2ec27e; padding: 0.5rem 1rem; border-radius: 10px; font-size: 0.82rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; transition: all 0.2s; margin-top: 0.5rem; }
+        .target-add-btn:hover { background: rgba(46,194,126,0.15); transform: translateY(-1px); }
       `}</style>
 
       <div className="prof-wrap">
@@ -414,42 +582,128 @@ export default function ProfilePage() {
                   <span className="prof-info-val">{user?.email ?? '—'}</span>
                 </div>
                 <div className="prof-info-row">
-                  <span className="prof-info-key">Member since</span>
-                  <span className="prof-info-val muted">Jan 2025 (demo)</span>
-                </div>
-                <div className="prof-info-row">
                   <span className="prof-info-key">Plan</span>
-                  <span className="prof-info-val" style={{ color: 'var(--accent2)' }}>Free tier</span>
+                  <span className="prof-info-val" style={{ color: 'var(--accent2)' }}>{currentPlan}</span>
                 </div>
               </div>
             </div>
-
+ 
             <div className="prof-section">
               <p className="prof-section-label">Profile completion</p>
               <div style={{ background: 'var(--input-bg)', border: '1px solid var(--border2)', borderRadius: 14, padding: '1rem 1.15rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.6rem', fontSize: '0.88rem' }}>
-                  <span style={{ fontWeight: 600, color: 'var(--text)' }}>62% complete</span>
-                  <span style={{ color: 'var(--muted)', fontSize: '0.8rem' }}>Set preferences to reach 100%</span>
+                  <span style={{ fontWeight: 600, color: 'var(--text)' }}>{completionScore}% complete</span>
+                  <span style={{ color: 'var(--muted)', fontSize: '0.8rem' }}>
+                    {completionScore === 100 ? 'All set! Your profile is complete.' : 'Complete your details to reach 100%'}
+                  </span>
                 </div>
                 <div style={{ height: 8, borderRadius: 100, background: 'var(--border)', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: '62%', borderRadius: 100, background: 'linear-gradient(90deg, var(--accent), var(--accent2))' }} />
+                  <div style={{ height: '100%', width: `${completionScore}%`, borderRadius: 100, background: 'linear-gradient(90deg, var(--accent), var(--accent2))', transition: 'width 0.4s ease' }} />
                 </div>
+                
+                {missingItems.length > 0 && (
+                  <div style={{ marginTop: '1.4rem', paddingTop: '1rem', borderTop: '1px solid var(--border2)' }}>
+                    <p style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '0.6rem' }}>What's missing?</p>
+                    <ul className="prof-todo-list">
+                      {missingItems.map(item => (
+                        <li key={item} className="prof-todo-item">
+                          <span className="prof-todo-dot" />
+                          {item}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             </div>
 
             <div className="prof-section">
               <p className="prof-section-label">Security</p>
-              <div className="prof-btn-row">
-                <button className="prof-btn-ghost" disabled>Change password</button>
-                <button className="prof-btn-ghost" disabled>Connect Google</button>
-              </div>
+              {!isPasswordFormOpen ? (
+                <div className="prof-btn-row">
+                  <button
+                    className="prof-btn-ghost"
+                    onClick={() => setIsPasswordFormOpen(true)}
+                  >
+                    Change password
+                  </button>
+                  <button className="prof-btn-ghost" disabled>Connect Google</button>
+                </div>
+              ) : (
+                <div className="prof-info-card" style={{ padding: '1.2rem', display: 'grid', gap: '1rem' }}>
+                  <div style={{ display: 'grid', gap: '0.4rem' }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>New Password</label>
+                    <input
+                      type="password"
+                      className="prof-name-input"
+                      placeholder="Minimum 8 characters"
+                      value={newPassword}
+                      onChange={e => setNewPassword(e.target.value)}
+                    />
+                  </div>
+                  <div style={{ display: 'grid', gap: '0.4rem' }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Confirm New Password</label>
+                    <input
+                      type="password"
+                      className="prof-name-input"
+                      placeholder="Repeat password"
+                      value={confirmPassword}
+                      onChange={e => setConfirmPassword(e.target.value)}
+                    />
+                  </div>
+                  <div className="prof-btn-row" style={{ marginTop: '0.4rem' }}>
+                    <button
+                      className="prof-save-mini"
+                      style={{ padding: '0.5rem 1.2rem', fontSize: '0.84rem' }}
+                      onClick={handleUpdatePassword}
+                      disabled={isUpdatingPassword}
+                    >
+                      {isUpdatingPassword ? 'Updating...' : 'Update Password'}
+                    </button>
+                    <button
+                      className="prof-edit-btn"
+                      style={{ padding: '0.5rem 1.2rem', fontSize: '0.84rem' }}
+                      onClick={() => {
+                        setIsPasswordFormOpen(false);
+                        setSecurityMessage(null);
+                        setNewPassword('');
+                        setConfirmPassword('');
+                      }}
+                      disabled={isUpdatingPassword}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+              {securityMessage && (
+                <p style={{
+                  marginTop: '0.8rem',
+                  fontSize: '0.82rem',
+                  color: securityMessage.includes('successfully') ? '#2ec27e' : '#ff8a8a',
+                  fontWeight: 500
+                }}>
+                  {securityMessage}
+                </p>
+              )}
             </div>
 
             <div className="prof-divider" />
 
             <div className="prof-section">
               <p className="prof-section-label">Danger zone</p>
-              <button className="prof-btn-danger" disabled>Delete account (coming soon)</button>
+              <button
+                className="prof-btn-danger"
+                onClick={handleDeleteAccount}
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'Deleting account...' : 'Delete account permanently'}
+              </button>
+              {dangerMessage && (
+                <p style={{ marginTop: '0.8rem', fontSize: '0.82rem', color: '#ff8a8a', fontWeight: 500 }}>
+                  {dangerMessage}
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -595,6 +849,52 @@ export default function ProfilePage() {
               </div>
             </div>
 
+            <div className="prof-section">
+              <p className="prof-section-label">Other allergies or dietary restrictions</p>
+              <textarea
+                className="prof-custom-textarea"
+                placeholder="Type any other specifics — e.g. &quot;No cilantro&quot;, &quot;Allergic to kiwi&quot;, &quot;Low sodium&quot;..."
+                value={customRestrictions}
+                onChange={e => setCustomRestrictions(e.target.value)}
+                rows={2}
+              />
+            </div>
+
+            <div className="prof-section">
+              <p className="prof-section-label">Nutritional Targets & Custom Goals</p>
+              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1.2rem', borderRadius: '16px', border: '1px solid var(--border2)' }}>
+                {nutritionalTargets.length === 0 ? (
+                  <p style={{ fontSize: '0.82rem', color: 'var(--muted)', margin: '0 0 1rem' }}>No custom targets added yet. Add goals like protein intake or calorie limits.</p>
+                ) : (
+                  <div style={{ marginBottom: '1rem' }}>
+                    {nutritionalTargets.map((t, i) => (
+                      <div key={i} className="target-item">
+                        <input 
+                          className="target-input-label" 
+                          placeholder="e.g. Daily Protein" 
+                          value={t.label}
+                          onChange={e => updateTarget(i, 'label', e.target.value)}
+                        />
+                        <input 
+                          className="target-input-val" 
+                          placeholder="e.g. 150g" 
+                          value={t.value}
+                          onChange={e => updateTarget(i, 'value', e.target.value)}
+                        />
+                        <button className="target-remove" onClick={() => removeTarget(i)}>✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <button className="target-add-btn" onClick={addTarget}>
+                  <span>+</span> Add Target Heading
+                </button>
+              </div>
+              <p className="prof-custom-hint" style={{ marginTop: '0.8rem' }}>
+                These targets help the AI tailor its nutritional advice and meal suggestions to your specific needs.
+              </p>
+            </div>
+
             <div className="prof-disclaimer">
               🛡️ MealMind uses your selections to filter all AI suggestions and recipes. Always verify ingredient labels if you have a severe allergy — this is not medical advice.
             </div>
@@ -614,7 +914,186 @@ export default function ProfilePage() {
             </div>
           </div>
         )}
+
+        {/* ── Tab: Billing & Subscription ── */}
+        {activeTab === 'billing' && (
+          <div className="prof-panel" role="tabpanel">
+            <div className="prof-section">
+              <p className="prof-section-label">Current Subscription</p>
+              <div className="bill-card">
+                <div className="bill-card-head">
+                  <div>
+                    <div className="bill-label">Active Plan</div>
+                    <div className="bill-val" style={{ color: 'var(--accent)' }}>{currentPlan}</div>
+                  </div>
+                  <button className="prof-btn-ghost" onClick={() => setIsPlanModalOpen(true)}>Change Plan</button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1.5rem', borderTop: '1px solid var(--border2)', paddingTop: '1.2rem' }}>
+                  <div>
+                    <div className="bill-label">Billing Cycle</div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 600 }}>Monthly</div>
+                  </div>
+                  <div>
+                    <div className="bill-label">Next Invoice</div>
+                    <div style={{ fontSize: '0.88rem', fontWeight: 600 }}>May 21, 2026</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="prof-section">
+              <p className="prof-section-label">Payment Method</p>
+              <div className="bill-card">
+                <div style={{ marginBottom: '1.4rem' }}>
+                  <div className="bill-label">Card Details</div>
+                  {(!cardName && !cardNumber) ? (
+                    <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.02)', border: '1px dashed var(--border2)', borderRadius: '12px', fontSize: '0.88rem', color: 'var(--muted)', textAlign: 'center' }}>
+                      No payment details provided yet. Fill in the form below.
+                    </div>
+                  ) : (
+                    <div 
+                      onClick={() => setIsCardExpanded(!isCardExpanded)}
+                      style={{ 
+                        display: 'flex', 
+                        flexDirection: 'column',
+                        gap: '0.8rem', 
+                        background: 'rgba(255,255,255,0.02)', 
+                        padding: '1.2rem', 
+                        borderRadius: '12px', 
+                        border: '1px solid var(--border2)',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s ease'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                        <div style={{ width: 40, height: 26, background: '#1a1a1a', borderRadius: '4px', border: '1px solid #333', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 900, color: '#666' }}>VISA</div>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>{cardName || 'Cardholder Name'}</div>
+                        <div style={{ marginLeft: 'auto', fontSize: '0.95rem', fontWeight: 700, letterSpacing: '1px' }}>
+                          •••• {cardNumber.slice(-4) || '••••'}
+                        </div>
+                        <div style={{ color: 'var(--accent)', fontSize: '0.7rem', fontWeight: 800 }}>{isCardExpanded ? '▲' : '▼'}</div>
+                      </div>
+                      
+                      {isCardExpanded && (
+                        <div 
+                          style={{ 
+                            display: 'grid', 
+                            gridTemplateColumns: '1fr 1fr', 
+                            gap: '1.5rem', 
+                            paddingTop: '1.2rem', 
+                            marginTop: '0.5rem',
+                            borderTop: '1px solid var(--border2)',
+                            animation: 'profFadeUp 0.3s ease both' 
+                          }}
+                        >
+                          <div>
+                            <div className="bill-label">Full Number</div>
+                            <div style={{ fontSize: '0.88rem', fontWeight: 600 }}>{cardNumber || '•••• •••• •••• ••••'}</div>
+                          </div>
+                          <div>
+                            <div className="bill-label">Expiry / CVV</div>
+                            <div style={{ fontSize: '0.88rem', fontWeight: 600 }}>
+                              {cardExp || 'MM/YY'} &nbsp;•&nbsp; {cardCvv ? '•••' : 'CVV'}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ display: 'grid', gap: '1.2rem' }}>
+                  <div className="bill-input-wrap">
+                    <label className="bill-label">Cardholder Name</label>
+                    <input 
+                      className="bill-input" 
+                      placeholder="e.g. John Doe" 
+                      value={cardName}
+                      onChange={e => setCardName(e.target.value)}
+                    />
+                  </div>
+                  <div className="bill-input-wrap">
+                    <label className="bill-label">Card Number</label>
+                    <input 
+                      className="bill-input" 
+                      placeholder="0000 0000 0000 0000" 
+                      value={cardNumber}
+                      onChange={e => setCardNumber(e.target.value.replace(/\s/g, ''))}
+                    />
+                  </div>
+                  <div className="bill-input-grid">
+                    <div className="bill-input-wrap">
+                      <label className="bill-label">Expiry Date</label>
+                      <input 
+                        className="bill-input" 
+                        placeholder="MM / YY" 
+                        value={cardExp}
+                        onChange={e => setCardExp(e.target.value)}
+                      />
+                    </div>
+                    <div className="bill-input-wrap">
+                      <label className="bill-label">CVV</label>
+                      <input 
+                        className="bill-input" 
+                        placeholder="•••" 
+                        type="password" 
+                        value={cardCvv}
+                        onChange={e => setCardCvv(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <button className="prof-btn-accent" style={{ marginTop: '0.5rem' }}>Update Payment Details</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* ── Plan Switcher Modal ── */}
+      {isPlanModalOpen && (
+        <div className="modal-overlay" onClick={() => setIsPlanModalOpen(false)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setIsPlanModalOpen(false)}>✕</button>
+            <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
+              <h2 style={{ fontFamily: 'Syne', fontSize: '2rem', fontWeight: 800, marginBottom: '0.5rem' }}>Choose your plan</h2>
+              <p style={{ color: 'var(--muted)', fontSize: '1rem' }}>Unlock the full potential of MealMind AI</p>
+            </div>
+
+            <div className="plan-grid">
+              {[
+                { name: 'Free tier', price: '0', period: '/forever', features: ['3 AI meal ideas / day', 'Basic dietary filters', 'Standard community support'] },
+                { name: 'Pro Plan', price: '999', period: '/month', features: ['Unlimited AI recipes', 'Priority chatbot response', 'Advanced nutrition tracking', 'Personalised meal plans'] },
+                { name: 'Elite Chef', price: '2,499', period: '/month', features: ['Everything in Pro', 'Smart fridge integration', 'Family accounts (up to 5)', 'Early access to new features'] },
+              ].map(plan => (
+                <div key={plan.name} className={`plan-card${currentPlan === plan.name ? ' active' : ''}`}>
+                  <div className="plan-title">{plan.name}</div>
+                  <div className="plan-price">PKR {plan.price}<span>{plan.period}</span></div>
+                  <ul className="plan-features">
+                    {plan.features.map(f => (
+                      <li key={f} className="plan-feature">
+                        <span style={{ color: 'var(--accent)' }}>✓</span>
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                  <button
+                    className={currentPlan === plan.name ? 'prof-btn-ghost' : 'prof-btn-accent'}
+                    style={{ width: '100%', padding: '0.8rem' }}
+                    onClick={() => {
+                      setCurrentPlan(plan.name);
+                      setIsPlanModalOpen(false);
+                    }}
+                    disabled={currentPlan === plan.name}
+                  >
+                    {currentPlan === plan.name ? 'Active' : 'Select Plan'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

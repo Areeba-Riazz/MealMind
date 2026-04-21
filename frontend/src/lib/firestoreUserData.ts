@@ -25,9 +25,18 @@ export interface UserPreferences {
   customPreferences?: string;
 }
 
+export interface NutritionalTarget {
+  label: string;
+  value: string;
+}
+
 export interface UserDietary {
   allergens: string[];
   diets: string[];
+  /** Free-form allergies or restrictions */
+  customRestrictions?: string;
+  /** Numeric or custom goals like calories/protein */
+  targets?: NutritionalTarget[];
 }
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
@@ -42,6 +51,8 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
 export const DEFAULT_DIETARY: UserDietary = {
   allergens: ['Peanuts', 'Shellfish', 'Dairy'],
   diets: ['Halal', 'High protein'],
+  customRestrictions: '',
+  targets: [],
 };
 
 export async function loadUserProfile(uid: string): Promise<{
@@ -74,7 +85,11 @@ export async function loadUserProfile(uid: string): Promise<{
   const onboardingCompleted = typeof ob === 'boolean' ? ob : null;
   return {
     preferences: { ...DEFAULT_PREFERENCES, ...data.preferences },
-    dietary: { ...DEFAULT_DIETARY, ...data.dietary },
+    dietary: { 
+      ...DEFAULT_DIETARY, 
+      ...data.dietary,
+      targets: data.dietary?.targets ?? DEFAULT_DIETARY.targets
+    },
     onboardingCompleted,
   };
 }
@@ -116,6 +131,11 @@ export async function saveUserProfileAndCompleteOnboarding(
     },
     { merge: true }
   );
+}
+
+export async function deleteUserDoc(uid: string): Promise<void> {
+  if (!db) throw new Error('Firestore is not configured');
+  await deleteDoc(doc(db, 'users', uid));
 }
 
 // ─── Saved recipes: users/{uid}/savedRecipes/{recipeId} ───
