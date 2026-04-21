@@ -240,13 +240,14 @@ export interface FoodLink {
   emoji: string;
   platform: string;
   href: string;
+  phone?: string;
   createdAt: string;
 }
 
 const DEMO_FOOD_LINKS: Omit<FoodLink, 'id' | 'createdAt'>[] = [
-  { restaurant: 'Burger Lab — DHA', item: 'Smash Beef Burger', area: 'Lahore · DHA Phase 4', distance: '1.2 km', price: 'Rs. 850', emoji: '🍔', platform: 'Foodpanda', href: 'https://www.foodpanda.pk' },
-  { restaurant: 'Daily Deli Co.', item: 'Grilled Chicken Wrap', area: 'DHA Phase 4', distance: '1.8 km', price: 'Rs. 650', emoji: '🌯', platform: 'WhatsApp', href: 'https://wa.me/923001234567' },
-  { restaurant: 'Johnny & Jugnu', item: 'Wehshi Zinger Burger', area: 'Johar Town', distance: '2.5 km', price: 'Rs. 700', emoji: '🍗', platform: 'Foodpanda', href: 'https://www.foodpanda.pk' },
+  { restaurant: 'Burger Lab — DHA', item: 'Smash Beef Burger', area: 'Lahore · DHA Phase 4', distance: '1.2 km', price: 'Rs. 850', emoji: '🍔', platform: 'Foodpanda', href: 'https://www.foodpanda.pk', phone: '03001234567' },
+  { restaurant: 'Daily Deli Co.', item: 'Grilled Chicken Wrap', area: 'DHA Phase 4', distance: '1.8 km', price: 'Rs. 650', emoji: '🌯', platform: 'Phone', href: '', phone: '03009876543' },
+  { restaurant: 'Johnny & Jugnu', item: 'Wehshi Zinger Burger', area: 'Johar Town', distance: '2.5 km', price: 'Rs. 700', emoji: '🍗', platform: 'Foodpanda', href: 'https://www.foodpanda.pk', phone: '03331234567' },
 ];
 
 export async function seedFoodLinksIfEmpty(uid: string): Promise<void> {
