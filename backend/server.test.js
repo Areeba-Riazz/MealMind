@@ -13,6 +13,7 @@ const fc = require("fast-check");
 // stubbing process.env before requiring the module.
 process.env.GOOGLE_MAPS_API_KEY = "test-key-placeholder";
 process.env.GEMINI_API_KEY = "test-key-placeholder";
+process.env.NODE_ENV = "test";
 
 const {
   PRICE_TIER_MAP,
@@ -21,6 +22,10 @@ const {
   formatResults,
   haversineKm,
   placePriceLevel,
+  sanitiseWebsite,
+  extractPhones,
+  foodpandaSearchUrl,
+  uberEatsSearchUrl,
 } = require("./server.js");
 
 // ---------------------------------------------------------------------------
@@ -173,12 +178,79 @@ describe("formatResults", () => {
     assert.deepEqual(formatResults([]), []);
   });
 
-  it("builds a valid orderLink for each result", () => {
+  it("builds a valid orderLink for each result (backward compat)", () => {
     const results = formatResults(makePlaces(3));
     for (const r of results) {
       assert.doesNotThrow(() => new URL(r.orderLink));
       assert.ok(r.orderLink.includes(r.id));
     }
+  });
+
+  it("builds a valid googleMapsLink matching orderLink", () => {
+    const results = formatResults(makePlaces(3));
+    for (const r of results) {
+      assert.equal(r.googleMapsLink, r.orderLink);
+      assert.doesNotThrow(() => new URL(r.googleMapsLink));
+    }
+  });
+
+  it("builds valid foodpandaLink and uberEatsLink for each result", () => {
+    const results = formatResults(makePlaces(3));
+    for (const r of results) {
+      assert.doesNotThrow(() => new URL(r.foodpandaLink), `Invalid foodpandaLink: ${r.foodpandaLink}`);
+      assert.doesNotThrow(() => new URL(r.uberEatsLink), `Invalid uberEatsLink: ${r.uberEatsLink}`);
+      assert.ok(r.foodpandaLink.includes("foodpanda.pk"));
+      assert.ok(r.uberEatsLink.includes("ubereats.com"));
+    }
+  });
+
+  it("exposes phones as an array", () => {
+    const places = [{
+      place_id: "p1",
+      name: "Test",
+      formatted_address: "1 St",
+      formatted_phone_number: "042-111-222",
+      international_phone_number: "+92-42-111-222",
+      geometry: { location: { lat: 31.5, lng: 74.3 } },
+    }];
+    const [r] = formatResults(places);
+    assert.ok(Array.isArray(r.phones));
+    assert.ok(r.phones.length >= 1);
+  });
+
+  it("phones array is empty when no phone data present", () => {
+    const [r] = formatResults(makePlaces(1));
+    assert.ok(Array.isArray(r.phones));
+    assert.equal(r.phones.length, 0);
+  });
+
+  it("website is null when not present on place", () => {
+    const [r] = formatResults(makePlaces(1));
+    assert.equal(r.website, null);
+  });
+
+  it("website is set when place has a valid website", () => {
+    const places = [{
+      place_id: "p1",
+      name: "Test",
+      formatted_address: "1 St",
+      website: "https://example.com",
+      geometry: { location: { lat: 31.5, lng: 74.3 } },
+    }];
+    const [r] = formatResults(places);
+    assert.equal(r.website, "https://example.com");
+  });
+
+  it("website is null when place has an invalid website", () => {
+    const places = [{
+      place_id: "p1",
+      name: "Test",
+      formatted_address: "1 St",
+      website: "not-a-url",
+      geometry: { location: { lat: 31.5, lng: 74.3 } },
+    }];
+    const [r] = formatResults(places);
+    assert.equal(r.website, null);
   });
 
   it("computes distanceKm when user coords are provided", () => {
@@ -242,6 +314,30 @@ describe("formatResults", () => {
       { numRuns: 200 }
     );
   });
+
+  // Property: foodpandaLink and uberEatsLink are always valid URLs
+  it("Property: platform search links are always valid URLs", () => {
+    fc.assert(
+      fc.property(
+        fc.array(
+          fc.record({
+            place_id: fc.string({ minLength: 1 }),
+            name: fc.string(),
+            formatted_address: fc.string(),
+          }),
+          { maxLength: 10 }
+        ),
+        (places) => {
+          const results = formatResults(places);
+          for (const r of results) {
+            assert.doesNotThrow(() => new URL(r.foodpandaLink));
+            assert.doesNotThrow(() => new URL(r.uberEatsLink));
+          }
+        }
+      ),
+      { numRuns: 200 }
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -261,5 +357,211 @@ describe("haversineKm", () => {
     const d1 = haversineKm(31.5, 74.3, 31.6, 74.4);
     const d2 = haversineKm(31.6, 74.4, 31.5, 74.3);
     assert.ok(Math.abs(d1 - d2) < 0.0001);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// sanitiseWebsite — unit tests
+// ---------------------------------------------------------------------------
+describe("sanitiseWebsite", () => {
+  it("returns valid https URL unchanged", () => {
+    assert.equal(sanitiseWebsite("https://example.com"), "https://example.com");
+  });
+
+  it("returns valid http URL unchanged", () => {
+    assert.equal(sanitiseWebsite("http://restaurant.pk"), "http://restaurant.pk");
+  });
+
+  it("returns null for null input", () => {
+    assert.equal(sanitiseWebsite(null), null);
+  });
+
+  it("returns null for undefined input", () => {
+    assert.equal(sanitiseWebsite(undefined), null);
+  });
+
+  it("returns null for empty string", () => {
+    assert.equal(sanitiseWebsite(""), null);
+  });
+
+  it("returns null for whitespace-only string", () => {
+    assert.equal(sanitiseWebsite("   "), null);
+  });
+
+  it("returns null for non-HTTP protocol (ftp)", () => {
+    assert.equal(sanitiseWebsite("ftp://files.example.com"), null);
+  });
+
+  it("returns null for bare IPv4 address", () => {
+    assert.equal(sanitiseWebsite("http://192.168.1.1"), null);
+    assert.equal(sanitiseWebsite("https://10.0.0.1"), null);
+  });
+
+  it("returns null for hostname without TLD", () => {
+    assert.equal(sanitiseWebsite("http://localhost"), null);
+  });
+
+  it("returns null for completely malformed string", () => {
+    assert.equal(sanitiseWebsite("not-a-url"), null);
+    assert.equal(sanitiseWebsite("just some text"), null);
+  });
+
+  it("trims whitespace before validating", () => {
+    assert.equal(sanitiseWebsite("  https://example.com  "), "https://example.com");
+  });
+
+  it("accepts URLs with paths and query strings", () => {
+    const url = "https://restaurant.com/menu?lang=en";
+    assert.equal(sanitiseWebsite(url), url);
+  });
+
+  // Property: sanitiseWebsite never returns a non-HTTP(S) URL
+  it("Property: result is always null or an http/https URL", () => {
+    fc.assert(
+      fc.property(fc.string(), (s) => {
+        const result = sanitiseWebsite(s);
+        if (result !== null) {
+          assert.doesNotThrow(() => new URL(result));
+          const u = new URL(result);
+          assert.ok(["http:", "https:"].includes(u.protocol));
+        }
+      }),
+      { numRuns: 500 }
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// extractPhones — unit tests
+// ---------------------------------------------------------------------------
+describe("extractPhones", () => {
+  it("returns empty array when no phone fields present", () => {
+    assert.deepEqual(extractPhones({}), []);
+  });
+
+  it("returns empty array when both fields are null", () => {
+    assert.deepEqual(extractPhones({ formatted_phone_number: null, international_phone_number: null }), []);
+  });
+
+  it("returns single phone when only formatted_phone_number is set", () => {
+    const result = extractPhones({ formatted_phone_number: "042-111-222" });
+    assert.deepEqual(result, ["042-111-222"]);
+  });
+
+  it("returns single phone when only international_phone_number is set", () => {
+    const result = extractPhones({ international_phone_number: "+92-42-111-222" });
+    assert.deepEqual(result, ["+92-42-111-222"]);
+  });
+
+  it("returns both phones when they are different", () => {
+    const result = extractPhones({
+      formatted_phone_number: "042-111-222",
+      international_phone_number: "+92-42-111-222",
+    });
+    assert.equal(result.length, 2);
+    assert.ok(result.includes("042-111-222"));
+    assert.ok(result.includes("+92-42-111-222"));
+  });
+
+  it("deduplicates identical phone numbers", () => {
+    const result = extractPhones({
+      formatted_phone_number: "042-111-222",
+      international_phone_number: "042-111-222",
+    });
+    assert.equal(result.length, 1);
+    assert.deepEqual(result, ["042-111-222"]);
+  });
+
+  it("ignores empty string phone values", () => {
+    const result = extractPhones({ formatted_phone_number: "", international_phone_number: "+92-42-111" });
+    assert.deepEqual(result, ["+92-42-111"]);
+  });
+
+  // Property: result length is always 0, 1, or 2
+  it("Property: phones array length is always 0–2", () => {
+    fc.assert(
+      fc.property(
+        fc.record({
+          formatted_phone_number: fc.oneof(fc.string(), fc.constant(null), fc.constant(undefined)),
+          international_phone_number: fc.oneof(fc.string(), fc.constant(null), fc.constant(undefined)),
+        }),
+        (place) => {
+          const result = extractPhones(place);
+          assert.ok(Array.isArray(result));
+          assert.ok(result.length >= 0 && result.length <= 2);
+        }
+      ),
+      { numRuns: 300 }
+    );
+  });
+
+  // Property: no duplicates in result
+  it("Property: extractPhones never returns duplicate entries", () => {
+    fc.assert(
+      fc.property(
+        fc.record({
+          formatted_phone_number: fc.oneof(fc.string(), fc.constant(null)),
+          international_phone_number: fc.oneof(fc.string(), fc.constant(null)),
+        }),
+        (place) => {
+          const result = extractPhones(place);
+          const unique = new Set(result);
+          assert.equal(unique.size, result.length);
+        }
+      ),
+      { numRuns: 300 }
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// foodpandaSearchUrl / uberEatsSearchUrl — unit tests
+// ---------------------------------------------------------------------------
+describe("foodpandaSearchUrl", () => {
+  it("returns a valid URL", () => {
+    assert.doesNotThrow(() => new URL(foodpandaSearchUrl("Burger Lab")));
+  });
+
+  it("contains the restaurant name in the query string", () => {
+    const url = new URL(foodpandaSearchUrl("Burger Lab"));
+    assert.equal(url.searchParams.get("q"), "Burger Lab");
+  });
+
+  it("URL-encodes special characters in the name", () => {
+    const url = new URL(foodpandaSearchUrl("Café & Grill"));
+    assert.ok(url.searchParams.get("q") === "Café & Grill");
+  });
+
+  it("Property: always returns a valid foodpanda.pk URL", () => {
+    fc.assert(
+      fc.property(fc.string(), (name) => {
+        const url = foodpandaSearchUrl(name);
+        assert.doesNotThrow(() => new URL(url));
+        assert.ok(new URL(url).hostname.includes("foodpanda.pk"));
+      }),
+      { numRuns: 200 }
+    );
+  });
+});
+
+describe("uberEatsSearchUrl", () => {
+  it("returns a valid URL", () => {
+    assert.doesNotThrow(() => new URL(uberEatsSearchUrl("Burger Lab")));
+  });
+
+  it("contains the restaurant name in the query string", () => {
+    const url = new URL(uberEatsSearchUrl("Burger Lab"));
+    assert.equal(url.searchParams.get("q"), "Burger Lab");
+  });
+
+  it("Property: always returns a valid ubereats.com URL", () => {
+    fc.assert(
+      fc.property(fc.string(), (name) => {
+        const url = uberEatsSearchUrl(name);
+        assert.doesNotThrow(() => new URL(url));
+        assert.ok(new URL(url).hostname.includes("ubereats.com"));
+      }),
+      { numRuns: 200 }
+    );
   });
 });

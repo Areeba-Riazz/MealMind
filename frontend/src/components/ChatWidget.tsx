@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { usePreferences } from '../context/PreferencesContext';
+import { useTheme } from '../context/ThemeContext';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -38,6 +39,9 @@ function formatChatError(err: unknown): string {
 
 export default function ChatWidget() {
   const { preferences } = usePreferences();
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+  
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -116,6 +120,10 @@ export default function ChatWidget() {
   return (
     <>
       <style>{`
+        /* ── Theme-aware colors ── */
+        .cw-theme-dark { --cw-bg: rgba(16,16,16,0.97); --cw-border: rgba(255,255,255,0.1); --cw-text: #f2ede4; --cw-text-muted: rgba(255,255,255,0.35); --cw-text-disabled: rgba(255,255,255,0.22); --cw-header-bg: rgba(22,22,22,0.6); --cw-panel-shadow: 0 24px 64px rgba(0,0,0,0.7), 0 0 0 1px rgba(232,82,42,0.1); --cw-input-bg: rgba(255,255,255,0.05); --cw-input-border: rgba(255,255,255,0.1); --cw-focus-shadow: 0 0 0 3px rgba(232,82,42,0.1); --cw-focus-bg: rgba(232,82,42,0.04); --cw-suggestion-bg: rgba(255,255,255,0.03); --cw-suggestion-border: rgba(255,255,255,0.08); --cw-empty-bg: transparent; --cw-bubble-assistant-bg: rgba(255,255,255,0.05); --cw-bubble-assistant-border: rgba(255,255,255,0.09); --cw-bubble-assistant-text: rgba(255,255,255,0.87); --cw-input-area-bg: rgba(14,14,14,0.6); --cw-input-area-border: rgba(255,255,255,0.07); --cw-prefs-bg: rgba(232,82,42,0.07); --cw-prefs-border: rgba(232,82,42,0.2); --cw-prefs-text: rgba(232,82,42,0.85); }
+        .cw-theme-light { --cw-bg: rgba(255,255,255,0.95); --cw-border: rgba(0,0,0,0.1); --cw-text: #1a1a1a; --cw-text-muted: rgba(0,0,0,0.55); --cw-text-disabled: rgba(0,0,0,0.3); --cw-header-bg: rgba(245,245,245,0.9); --cw-panel-shadow: 0 24px 64px rgba(0,0,0,0.12), 0 0 0 1px rgba(232,82,42,0.15); --cw-input-bg: rgba(0,0,0,0.04); --cw-input-border: rgba(0,0,0,0.12); --cw-focus-shadow: 0 0 0 3px rgba(232,82,42,0.15); --cw-focus-bg: rgba(232,82,42,0.06); --cw-suggestion-bg: rgba(0,0,0,0.03); --cw-suggestion-border: rgba(0,0,0,0.1); --cw-empty-bg: transparent; --cw-bubble-assistant-bg: rgba(0,0,0,0.04); --cw-bubble-assistant-border: rgba(0,0,0,0.1); --cw-bubble-assistant-text: rgba(0,0,0,0.85); --cw-input-area-bg: rgba(255,255,255,0.8); --cw-input-area-border: rgba(0,0,0,0.08); --cw-prefs-bg: rgba(232,82,42,0.08); --cw-prefs-border: rgba(232,82,42,0.25); --cw-prefs-text: rgba(232,82,42,0.75); }
+        
         /* ── FAB button ── */
         .cw-fab {
           position: fixed;
@@ -151,13 +159,13 @@ export default function ChatWidget() {
           z-index: 998;
           width: min(390px, calc(100vw - 2rem));
           height: min(560px, calc(100vh - 8rem));
-          background: rgba(16,16,16,0.97);
-          border: 1px solid rgba(255,255,255,0.1);
+          background: var(--cw-bg);
+          border: 1px solid var(--cw-border);
           border-radius: 22px;
           display: flex;
           flex-direction: column;
           overflow: hidden;
-          box-shadow: 0 24px 64px rgba(0,0,0,0.7), 0 0 0 1px rgba(232,82,42,0.1);
+          box-shadow: var(--cw-panel-shadow);
           backdrop-filter: blur(32px);
           -webkit-backdrop-filter: blur(32px);
           transform-origin: bottom right;
@@ -174,9 +182,9 @@ export default function ChatWidget() {
           align-items: center;
           gap: 0.75rem;
           padding: 1rem 1.1rem 0.9rem;
-          border-bottom: 1px solid rgba(255,255,255,0.07);
+          border-bottom: 1px solid var(--cw-border);
           flex-shrink: 0;
-          background: rgba(22,22,22,0.6);
+          background: var(--cw-header-bg);
         }
         .cw-header-icon {
           width: 36px;
@@ -195,13 +203,13 @@ export default function ChatWidget() {
           font-family: 'Syne', sans-serif;
           font-size: 0.95rem;
           font-weight: 800;
-          color: #f2ede4;
+          color: var(--cw-text);
           margin: 0;
           letter-spacing: -0.2px;
         }
         .cw-header-sub {
           font-size: 0.7rem;
-          color: rgba(255,255,255,0.35);
+          color: var(--cw-text-muted);
           margin: 0;
         }
         .cw-header-actions { display: flex; gap: 0.3rem; }
@@ -209,9 +217,9 @@ export default function ChatWidget() {
           width: 28px;
           height: 28px;
           border-radius: 8px;
-          border: 1px solid rgba(255,255,255,0.08);
+          border: 1px solid var(--cw-border);
           background: transparent;
-          color: rgba(255,255,255,0.35);
+          color: var(--cw-text-muted);
           cursor: pointer;
           display: flex;
           align-items: center;
@@ -219,17 +227,17 @@ export default function ChatWidget() {
           font-size: 0.8rem;
           transition: all 0.18s;
         }
-        .cw-header-btn:hover { color: #f2ede4; background: rgba(255,255,255,0.06); }
+        .cw-header-btn:hover { color: var(--cw-text); background: rgba(232,82,42,0.05); }
 
         /* ── Prefs badge ── */
         .cw-prefs-badge {
           margin: 0.6rem 1rem 0;
           padding: 0.4rem 0.75rem;
-          background: rgba(232,82,42,0.07);
-          border: 1px solid rgba(232,82,42,0.2);
+          background: var(--cw-prefs-bg);
+          border: 1px solid var(--cw-prefs-border);
           border-radius: 10px;
           font-size: 0.7rem;
-          color: rgba(232,82,42,0.85);
+          color: var(--cw-prefs-text);
           flex-shrink: 0;
         }
 
@@ -243,11 +251,11 @@ export default function ChatWidget() {
           flex-direction: column;
           gap: 0.75rem;
           scrollbar-width: thin;
-          scrollbar-color: rgba(255,255,255,0.07) transparent;
+          scrollbar-color: var(--cw-border) transparent;
         }
         .cw-messages::-webkit-scrollbar { width: 4px; }
         .cw-messages::-webkit-scrollbar-track { background: transparent; }
-        .cw-messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 10px; }
+        .cw-messages::-webkit-scrollbar-thumb { background: var(--cw-border); border-radius: 10px; }
 
         /* ── Empty state ── */
         .cw-empty {
@@ -265,17 +273,17 @@ export default function ChatWidget() {
           font-family: 'Syne', sans-serif;
           font-size: 0.95rem;
           font-weight: 800;
-          color: #f2ede4;
+          color: var(--cw-text);
           margin: 0;
         }
-        .cw-empty-sub { font-size: 0.78rem; color: rgba(255,255,255,0.35); margin: 0 0 1rem; line-height: 1.5; }
+        .cw-empty-sub { font-size: 0.78rem; color: var(--cw-text-muted); margin: 0 0 1rem; line-height: 1.5; }
         .cw-suggestions { display: flex; flex-direction: column; gap: 0.4rem; width: 100%; }
         .cw-suggestion-btn {
           padding: 0.5rem 0.8rem;
-          background: rgba(255,255,255,0.03);
-          border: 1px solid rgba(255,255,255,0.08);
+          background: var(--cw-suggestion-bg);
+          border: 1px solid var(--cw-suggestion-border);
           border-radius: 10px;
-          color: rgba(255,255,255,0.6);
+          color: var(--cw-text-muted);
           font: 500 0.78rem 'DM Sans', sans-serif;
           cursor: pointer;
           text-align: left;
@@ -285,7 +293,7 @@ export default function ChatWidget() {
         .cw-suggestion-btn:hover {
           border-color: rgba(232,82,42,0.35);
           background: rgba(232,82,42,0.07);
-          color: #f2ede4;
+          color: var(--cw-text);
         }
 
         /* ── Message bubbles ── */
@@ -312,13 +320,13 @@ export default function ChatWidget() {
         .cw-msg.user .cw-bubble {
           background: linear-gradient(135deg, rgba(232,82,42,0.22), rgba(232,82,42,0.14));
           border: 1px solid rgba(232,82,42,0.3);
-          color: #f2ede4;
+          color: var(--cw-text);
           border-bottom-right-radius: 5px;
         }
         .cw-msg.assistant .cw-bubble {
-          background: rgba(255,255,255,0.05);
-          border: 1px solid rgba(255,255,255,0.09);
-          color: rgba(255,255,255,0.87);
+          background: var(--cw-bubble-assistant-bg);
+          border: 1px solid var(--cw-bubble-assistant-border);
+          color: var(--cw-bubble-assistant-text);
           border-bottom-left-radius: 5px;
         }
 
@@ -329,15 +337,15 @@ export default function ChatWidget() {
           align-items: center;
           gap: 0.3rem;
           padding: 0.7rem 1rem;
-          background: rgba(255,255,255,0.05);
-          border: 1px solid rgba(255,255,255,0.09);
+          background: var(--cw-bubble-assistant-bg);
+          border: 1px solid var(--cw-bubble-assistant-border);
           border-radius: 16px;
           border-bottom-left-radius: 5px;
         }
         .cw-dot {
           width: 6px;
           height: 6px;
-          background: rgba(255,255,255,0.35);
+          background: var(--cw-text-muted);
           border-radius: 50%;
           animation: cwDot 1.2s infinite;
         }
@@ -363,19 +371,19 @@ export default function ChatWidget() {
         /* ── Input area ── */
         .cw-input-area {
           padding: 0.8rem 1rem;
-          border-top: 1px solid rgba(255,255,255,0.07);
+          border-top: 1px solid var(--cw-input-area-border);
           display: flex;
           gap: 0.55rem;
           align-items: flex-end;
           flex-shrink: 0;
-          background: rgba(14,14,14,0.6);
+          background: var(--cw-input-area-bg);
         }
         .cw-textarea {
           flex: 1;
-          background: rgba(255,255,255,0.05);
-          border: 1px solid rgba(255,255,255,0.1);
+          background: var(--cw-input-bg);
+          border: 1px solid var(--cw-input-border);
           border-radius: 13px;
-          color: #f2ede4;
+          color: var(--cw-text);
           font: 0.87rem 'DM Sans', sans-serif;
           padding: 0.65rem 0.85rem;
           resize: none;
@@ -386,13 +394,13 @@ export default function ChatWidget() {
           transition: border-color 0.2s, box-shadow 0.2s;
           line-height: 1.5;
           scrollbar-width: thin;
-          scrollbar-color: rgba(255,255,255,0.08) transparent;
+          scrollbar-color: var(--cw-border) transparent;
         }
-        .cw-textarea::placeholder { color: rgba(255,255,255,0.22); }
+        .cw-textarea::placeholder { color: var(--cw-text-disabled); }
         .cw-textarea:focus {
           border-color: rgba(232,82,42,0.5);
-          box-shadow: 0 0 0 3px rgba(232,82,42,0.1);
-          background: rgba(232,82,42,0.04);
+          box-shadow: var(--cw-focus-shadow);
+          background: var(--cw-focus-bg);
         }
         .cw-send-btn {
           width: 38px;
@@ -433,7 +441,7 @@ export default function ChatWidget() {
 
       {/* Chat panel */}
       {isOpen && (
-        <div className="cw-panel" role="dialog" aria-label="MealMind AI Chat">
+        <div className={`cw-panel cw-theme-${isDark ? 'dark' : 'light'}`} role="dialog" aria-label="MealMind AI Chat">
           {/* Header */}
           <div className="cw-header">
             <div className="cw-header-icon">🍛</div>

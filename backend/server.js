@@ -267,14 +267,193 @@ function haversineKm(lat1, lng1, lat2, lng2) {
 }
 
 /**
+ * Validates that a website URL is plausible before surfacing it to users.
+ * Rejects nulls, non-HTTP(S) protocols, bare IPs, and malformed URLs.
+ * Does NOT make a network request — purely structural validation.
+ *
+ * @param {unknown} url
+ * @returns {string | null}  The original URL string if valid, otherwise null.
+ */
+function sanitiseWebsite(url) {
+  if (!url || typeof url !== "string") return null;
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+  try {
+    const u = new URL(trimmed);
+    if (!["http:", "https:"].includes(u.protocol)) return null;
+    // Reject bare IPv4 addresses (e.g. http://192.168.1.1)
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(u.hostname)) return null;
+    // Must have at least one dot in the hostname (real TLD)
+    if (!u.hostname.includes(".")) return null;
+    return trimmed;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Collects all non-null phone strings from a place object, deduplicates them,
+ * and returns a clean array. Returns an empty array when none are present.
+ *
+ * @param {{ formatted_phone_number?: string|null, international_phone_number?: string|null }} place
+ * @returns {string[]}
+ */
+function extractPhones(place) {
+  const candidates = [
+    place.formatted_phone_number,
+    place.international_phone_number,
+  ];
+  const seen = new Set();
+  const phones = [];
+  for (const p of candidates) {
+    if (p && typeof p === "string") {
+      const trimmed = p.trim();
+      if (trimmed && !seen.has(trimmed)) {
+        seen.add(trimmed);
+        phones.push(trimmed);
+      }
+    }
+  }
+  return phones;
+}
+
+/**
+ * Builds a FoodPanda search URL for a restaurant name + city.
+ * Used as a fallback when no direct listing is found.
+ *
+ * @param {string} name
+ * @param {string} [city]
+ * @returns {string}
+ */
+function foodpandaSearchUrl(name, city) {
+  const q = city ? `${name} ${city}` : name;
+  return `https://www.foodpanda.pk/?query=${encodeURIComponent(q)}`;
+}
+
+/**
+ * Runs three focused Tavily searches for a restaurant (Instagram, Facebook, FoodPanda),
+ * then uses Gemini to extract only high-confidence direct profile/listing URLs.
+ *
+ * All searches run in parallel. Gemini extraction is a single fast call over the
+ * combined results. Entire function is non-fatal — returns empty object on any failure.
+ *
+ * @param {string} name  Restaurant name as returned by Google Places
+ * @param {string} city  City extracted from formatted_address or resolved area
+ * @returns {Promise<{ instagramUrl?: string, facebookUrl?: string, foodpandaUrl?: string }>}
+ */
+async function enrichRestaurantLinks(name, city) {
+  const tavilyKey = process.env.TAVILY_API_KEY;
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (!tavilyKey || !geminiKey) return {};
+
+  const tavily = new TavilyClient({ apiKey: tavilyKey });
+
+  // Three targeted queries — each scoped to one platform
+  const queries = [
+    `"${name}" "${city}" site:instagram.com`,
+    `"${name}" "${city}" site:facebook.com`,
+    `"${name}" "${city}" site:foodpanda.pk`,
+  ];
+
+  let allResults = [];
+  try {
+    const searches = await Promise.all(
+      queries.map((q) =>
+        tavily
+          .search(q, { search_depth: "basic", max_results: 3, include_answer: false })
+          .then((r) => r.results ?? [])
+          .catch(() => []) // individual query failure is non-fatal
+      )
+    );
+    allResults = searches.flat();
+  } catch {
+    return {};
+  }
+
+  if (allResults.length === 0) return {};
+
+  // Build a compact context block for Gemini — url + title + first 120 chars of content
+  const context = allResults
+    .map((r, i) => `[${i + 1}] URL: ${r.url}\n    Title: ${r.title}\n    Snippet: ${(r.content ?? "").slice(0, 120)}`)
+    .join("\n\n");
+
+  const prompt = `You are extracting social media and ordering links for a restaurant.
+
+Restaurant: "${name}" in "${city}"
+
+Search results:
+${context}
+
+Rules:
+- instagramUrl: must be a profile page (instagram.com/<handle>) — NOT a reel, post, or story URL. Reject any URL containing /reel/, /p/, /stories/.
+- facebookUrl: must be a page URL (facebook.com/<page>) — NOT a post or photo URL. Reject any URL containing /posts/, /photos/, /videos/.
+- foodpandaUrl: must be a direct restaurant listing on foodpanda.pk — must contain "/restaurant/" in the path. Reject city pages, search pages, or other restaurants.
+- Only include a URL if you are highly confident it belongs to THIS restaurant ("${name}"), not a different restaurant with a similar name.
+- Return null for any field you cannot confirm.
+
+Respond ONLY with valid JSON, no markdown:
+{
+  "instagramUrl": "<url or null>",
+  "facebookUrl": "<url or null>",
+  "foodpandaUrl": "<url or null>"
+}`;
+
+  try {
+    const genAI = new GoogleGenerativeAI(geminiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+    const result = await model.generateContent(prompt);
+    let text = result.response.text().replace(/```json/g, "").replace(/```/g, "").trim();
+    const parsed = JSON.parse(text);
+
+    const out = {};
+
+    // Validate each extracted URL structurally before returning
+    const ig = sanitiseWebsite(parsed.instagramUrl);
+    if (ig && /instagram\.com\/(?!reel|p\/|stories)[\w.]+/.test(ig)) out.instagramUrl = ig;
+
+    const fb = sanitiseWebsite(parsed.facebookUrl);
+    if (fb && /facebook\.com\/(?!posts|photos|videos)[\w.]+/.test(fb)) out.facebookUrl = fb;
+
+    const fp = sanitiseWebsite(parsed.foodpandaUrl);
+    if (fp && /foodpanda\.pk\/restaurant\//.test(fp)) out.foodpandaUrl = fp;
+
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Extracts the city name from a Google Places formatted_address string.
+ * Falls back to the resolvedArea string if address parsing yields nothing.
+ *
+ * @param {string} formattedAddress  e.g. "123 Main St, Lahore, Punjab, Pakistan"
+ * @param {string} [fallback]
+ * @returns {string}
+ */
+function cityFromAddress(formattedAddress, fallback) {
+  if (!formattedAddress) return fallback ?? "";
+  // Addresses are comma-separated; city is typically the second-to-last or third segment
+  const parts = formattedAddress.split(",").map((s) => s.trim()).filter(Boolean);
+  // Walk from the end: skip "Pakistan" and province names, take first plausible city
+  const skipWords = /^(pakistan|punjab|sindh|kpk|khyber|balochistan|islamabad capital territory)$/i;
+  for (let i = parts.length - 1; i >= 0; i--) {
+    if (!skipWords.test(parts[i]) && !/^\d/.test(parts[i])) {
+      return parts[i];
+    }
+  }
+  return fallback ?? parts[0] ?? "";
+}
+/**
  * Maps raw Google Maps place objects to CravingResult shape.
- * Caps output at 5 results.
+ * Caps output at 5 results. Social/ordering links are stubs here —
+ * enrichRestaurantLinks() fills them in after this call.
  * Requirements: 1.3, 1.4, 5.1
  *
  * @param {Array<object>} places  Raw places from the Maps API
  * @param {number|undefined} userLat
  * @param {number|undefined} userLng
- * @returns {Array<import('./types').CravingResult>}
+ * @returns {Array<object>}
  */
 function formatResults(places, userLat, userLng) {
   return places.slice(0, 5).map((place) => {
@@ -289,15 +468,33 @@ function formatResults(places, userLat, userLng) {
         ? haversineKm(userLat, userLng, placeLat, placeLng)
         : 0;
 
+    const name = place.name ?? "";
+    const placeId = place.place_id ?? "";
+    const googleMapsLink = `https://www.google.com/maps/place/?q=place_id:${placeId}`;
+    const city = cityFromAddress(place.formatted_address ?? "");
+
     return {
-      id: place.place_id ?? "",
-      name: place.name ?? "",
+      id: placeId,
+      name,
       address: place.formatted_address ?? "",
       distanceKm,
       priceLevel: place.price_level ?? 0,
       rating: place.rating ?? 0,
-      orderLink: `https://www.google.com/maps/place/?q=place_id:${place.place_id ?? ""}`,
+      // ── Ordering links ──────────────────────────────────────────────────
+      /** @deprecated use googleMapsLink — kept for FoodLinks save-link compat */
+      orderLink: googleMapsLink,
+      googleMapsLink,
+      foodpandaLink: foodpandaSearchUrl(name, city), // fallback search; may be upgraded to direct
+      foodpandaIsDirect: false,
+      instagramUrl: null,
+      facebookUrl: null,
+      // ── Contact ─────────────────────────────────────────────────────────
+      /** @deprecated use phones[] — kept for any consumers still reading .phone */
       phone: place.formatted_phone_number ?? place.international_phone_number ?? null,
+      phones: extractPhones(place),
+      // ── Website ─────────────────────────────────────────────────────────
+      website: sanitiseWebsite(place.website),
+      // ── Coordinates ─────────────────────────────────────────────────────
       lat: placeLat ?? null,
       lng: placeLng ?? null,
     };
@@ -354,7 +551,7 @@ async function searchPlaces(foodTerm, lat, lng, area) {
     try {
       const detailParams = new URLSearchParams({
         place_id: place.place_id,
-        fields: "formatted_phone_number,international_phone_number",
+        fields: "formatted_phone_number,international_phone_number,website",
         key: apiKey,
       });
       const detailRes = await fetch(
@@ -367,6 +564,7 @@ async function searchPlaces(foodTerm, lat, lng, area) {
           ...place,
           formatted_phone_number: detailData.result.formatted_phone_number ?? null,
           international_phone_number: detailData.result.international_phone_number ?? null,
+          website: detailData.result.website ?? null,
         };
       }
     } catch {
@@ -453,7 +651,22 @@ app.post("/api/cravings", async (req, res) => {
   // Requirement 1.4 — cap at 5, build CravingResult objects
   const results = formatResults(ordered, userLat, userLng);
 
-  return res.status(200).json({ results });
+  // Enrich each result with social/ordering links via Tavily + Gemini (parallel, non-fatal)
+  const enriched = await Promise.all(
+    results.map(async (r) => {
+      const links = await enrichRestaurantLinks(r.name, cityFromAddress(r.address, resolvedArea));
+      return {
+        ...r,
+        ...(links.foodpandaUrl
+          ? { foodpandaLink: links.foodpandaUrl, foodpandaIsDirect: true }
+          : {}),
+        instagramUrl: links.instagramUrl ?? null,
+        facebookUrl: links.facebookUrl ?? null,
+      };
+    })
+  );
+
+  return res.status(200).json({ results: enriched });
 });
 
 /**
@@ -657,7 +870,10 @@ server.on("error", (err) => {
   } else {
     console.error("❌ Server error:", err.message);
   }
-  process.exit(1);
+  // Don't exit during test runs — the test runner requires the process to stay alive
+  if (process.env.NODE_ENV !== "test") {
+    process.exit(1);
+  }
 });
 
 // Export pure functions for unit / property-based testing
@@ -672,4 +888,9 @@ module.exports = {
   placePriceLevel,
   sortRawPlacesByDistance,
   normalizeNutrition,
+  sanitiseWebsite,
+  extractPhones,
+  foodpandaSearchUrl,
+  cityFromAddress,
+  enrichRestaurantLinks,
 };

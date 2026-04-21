@@ -32,6 +32,10 @@
   --hero-bg: rgba(22,22,22,0.8);
   --feat-card-bg: var(--surface);
   --crav-tag-bg: rgba(255,255,255,0.04);
+  
+  /* Auth pages */
+  --auth-card-bg: rgba(22,22,22,0.82);
+  --auth-card-shadow: 0 32px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04);
 }
 
 [data-theme='light'] {
@@ -62,6 +66,10 @@
   --hero-bg: rgba(255,255,255,0.9);
   --feat-card-bg: #ffffff;
   --crav-tag-bg: rgba(0,0,0,0.04);
+  
+  /* Auth pages */
+  --auth-card-bg: rgba(255,255,255,0.9);
+  --auth-card-shadow: 0 32px 80px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.08);
 }
 
 *,

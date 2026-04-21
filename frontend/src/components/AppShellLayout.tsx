@@ -2,6 +2,11 @@ import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import ChatWidget from './ChatWidget';
 import NpsModal from './NpsModal';
+import { useAuth } from '../context/AuthContext';
+import { useGeolocation } from '../hooks/useGeolocation';
+import { useLocationDisplay } from '../hooks/useLocationDisplay';
+import { useState } from 'react';
+import LocationPickerModal from './LocationPickerModal';
 
 const PAGE_TITLES: Record<string, { title: string; sub: string }> = {
   '/dashboard': { title: 'Dashboard', sub: 'Your meal command center' },
@@ -16,6 +21,12 @@ const PAGE_TITLES: Record<string, { title: string; sub: string }> = {
 export default function AppShellLayout() {
   const { pathname } = useLocation();
   const meta = PAGE_TITLES[pathname] ?? { title: 'MealMind', sub: '' };
+  const isCravings = pathname === '/cravings';
+
+  const { user } = useAuth();
+  const geo = useGeolocation();
+  const loc = useLocationDisplay(user?.uid);
+  const [showLocModal, setShowLocModal] = useState(false);
 
   return (
     <>
@@ -79,6 +90,39 @@ export default function AppShellLayout() {
           letter-spacing: 0.5px;
           text-transform: uppercase;
         }
+        .mm-topbar-loc-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          padding: 0.3rem 0.85rem;
+          background: var(--glass-hover);
+          border: 1px solid var(--border);
+          border-radius: 100px;
+          font-size: 0.78rem;
+          font-weight: 600;
+          color: var(--text);
+          cursor: pointer;
+          font-family: 'DM Sans', sans-serif;
+          transition: all 0.18s;
+          max-width: 200px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .mm-topbar-loc-btn:hover {
+          border-color: rgba(232,82,42,0.4);
+          color: #e8522a;
+        }
+        .mm-topbar-loc-manual {
+          font-size: 0.65rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          color: #e8522a;
+          background: rgba(232,82,42,0.1);
+          border-radius: 100px;
+          padding: 0.1rem 0.4rem;
+        }
         /* Scrollable content area */
         .mm-shell-content {
           flex: 1;
@@ -108,9 +152,32 @@ export default function AppShellLayout() {
               {meta.sub && <p>{meta.sub}</p>}
             </div>
             <div className="mm-topbar-right">
+              {isCravings && !loc.loading && (
+                <button
+                  type="button"
+                  className="mm-topbar-loc-btn"
+                  onClick={() => setShowLocModal(true)}
+                  title="Change location"
+                >
+                  <span>📍</span>
+                  <span>{loc.displayLabel ?? 'Set location'}</span>
+                  {loc.hasOverride && <span className="mm-topbar-loc-manual">manual</span>}
+                </button>
+              )}
               <div className="mm-topbar-pill">🌶️ Free tier</div>
             </div>
           </header>
+
+          {showLocModal && (
+            <LocationPickerModal
+              onClose={() => setShowLocModal(false)}
+              onSelect={(o) => loc.setOverride(o, user?.uid)}
+              onUseDevice={() => loc.clearOverride(user?.uid)}
+              hasOverride={loc.hasOverride}
+              initialLat={loc.overrideLat ?? geo.lat}
+              initialLng={loc.overrideLng ?? geo.lng}
+            />
+          )}
 
           {/* Page content */}
           <main className="mm-shell-content">

@@ -86,12 +86,12 @@ export default function Login() {
         .login-card {
           width: 100%; max-width: 860px;
           display: grid; grid-template-columns: 1fr 1fr;
-          background: rgba(22, 22, 22, 0.82);
+          background: var(--auth-card-bg);
           border: 1px solid var(--border2);
           border-radius: var(--radius-lg);
           backdrop-filter: blur(28px);
           -webkit-backdrop-filter: blur(28px);
-          box-shadow: 0 32px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04);
+          box-shadow: var(--auth-card-shadow);
           animation: cardIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
           overflow: hidden;
         }
@@ -196,7 +196,7 @@ export default function Login() {
         .input-wrap { position: relative; }
         .input-wrap input {
           width: 100%; padding: 0.72rem 0.9rem;
-          background: rgba(255,255,255,0.04);
+          background: var(--input-bg);
           border: 1px solid var(--border2); border-radius: 11px;
           color: var(--text); font-size: 0.9rem;
           font-family: var(--font-body);
