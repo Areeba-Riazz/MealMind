@@ -203,21 +203,21 @@ export default function ProfilePage() {
         @keyframes profFadeUp { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
 
         /* ── Header ── */
-        .prof-header { display: flex; align-items: center; gap: 1.4rem; margin-bottom: 2.2rem; padding: 2rem 2rem 1.8rem; background: rgba(22,22,22,0.7); border: 1px solid rgba(255,255,255,0.07); border-radius: 22px; backdrop-filter: blur(20px); }
+        .prof-header { display: flex; align-items: center; gap: 1.4rem; margin-bottom: 2.2rem; padding: 2rem 2rem 1.8rem; background: var(--dash-card-bg); border: 1px solid var(--border2); border-radius: 22px; backdrop-filter: blur(20px); }
         .prof-avatar { width: 68px; height: 68px; border-radius: 50%; background: linear-gradient(135deg, rgba(232,82,42,0.3), rgba(245,200,66,0.2)); border: 2px solid rgba(232,82,42,0.4); display: flex; align-items: center; justify-content: center; font-family: 'Syne', sans-serif; font-size: 1.6rem; font-weight: 800; color: var(--accent); flex-shrink: 0; }
-        .prof-header-text h1 { font-family: 'Syne', sans-serif; font-size: 1.55rem; font-weight: 800; letter-spacing: -0.5px; margin: 0 0 0.2rem; }
+        .prof-header-text h1 { font-family: 'Syne', sans-serif; font-size: 1.55rem; font-weight: 800; letter-spacing: -0.5px; margin: 0 0 0.2rem; color: var(--text); }
         .prof-header-text p { font-size: 0.88rem; color: var(--muted); margin: 0; }
         .prof-header-badge { margin-left: auto; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.9rem; background: rgba(46,194,126,0.1); border: 1px solid rgba(46,194,126,0.3); border-radius: 100px; font-size: 0.75rem; font-weight: 700; color: #2ec27e; letter-spacing: 0.5px; text-transform: uppercase; flex-shrink: 0; }
 
         /* ── Tabs ── */
-        .prof-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.8rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 14px; padding: 0.35rem; }
+        .prof-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.8rem; background: var(--input-bg); border: 1px solid var(--border2); border-radius: 14px; padding: 0.35rem; }
         .prof-tab { flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.45rem; padding: 0.7rem 1rem; border-radius: 10px; border: none; background: transparent; color: var(--muted); font: 600 0.88rem/1 'DM Sans', sans-serif; cursor: pointer; transition: all 0.22s; }
-        .prof-tab:hover { color: var(--text); background: rgba(255,255,255,0.04); }
-        .prof-tab.active { background: rgba(232,82,42,0.14); color: var(--text); border: 1px solid rgba(232,82,42,0.32); box-shadow: 0 2px 12px rgba(232,82,42,0.12); }
+        .prof-tab:hover { color: var(--text); background: var(--glass-hover); }
+        .prof-tab.active { background: rgba(232,82,42,0.14); color: var(--accent); border: 1px solid rgba(232,82,42,0.32); box-shadow: 0 2px 12px rgba(232,82,42,0.12); }
         .prof-tab .tab-emoji { font-size: 1rem; }
 
         /* ── Tab panel ── */
-        .prof-panel { background: rgba(22,22,22,0.7); border: 1px solid rgba(255,255,255,0.07); border-radius: 22px; padding: 2rem 2rem; backdrop-filter: blur(20px); animation: profFadeUp 0.35s cubic-bezier(0.22,1,0.36,1) both; }
+        .prof-panel { background: var(--dash-card-bg); border: 1px solid var(--border2); border-radius: 22px; padding: 2rem 2rem; backdrop-filter: blur(20px); animation: profFadeUp 0.35s cubic-bezier(0.22,1,0.36,1) both; }
 
         /* ── Section headings ── */
         .prof-section-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); margin: 0 0 0.8rem; }
@@ -226,8 +226,8 @@ export default function ProfilePage() {
         .prof-divider { height: 1px; background: rgba(255,255,255,0.06); margin: 1.6rem 0; }
 
         /* ── Info rows ── */
-        .prof-info-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; overflow: hidden; }
-        .prof-info-row { display: flex; align-items: center; gap: 1rem; padding: 0.95rem 1.15rem; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .prof-info-card { background: var(--input-bg); border: 1px solid var(--border2); border-radius: 14px; overflow: hidden; }
+        .prof-info-row { display: flex; align-items: center; gap: 1rem; padding: 0.95rem 1.15rem; border-bottom: 1px solid var(--border); }
         .prof-info-row:last-child { border-bottom: none; }
         .prof-info-key { font-size: 0.8rem; color: var(--muted); min-width: 100px; flex-shrink: 0; font-weight: 500; }
         .prof-info-val { font-size: 0.9rem; font-weight: 600; }
@@ -235,9 +235,9 @@ export default function ProfilePage() {
 
         /* ── Chips ── */
         .prof-chip-grid { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-        .prof-chip { padding: 0.4rem 0.85rem; border-radius: 100px; font-size: 0.83rem; font-weight: 500; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04); color: var(--muted); transition: all 0.18s; user-select: none; }
+        .prof-chip { padding: 0.4rem 0.85rem; border-radius: 100px; font-size: 0.83rem; font-weight: 500; cursor: pointer; border: 1px solid var(--border2); background: var(--input-bg); color: var(--muted); transition: all 0.18s; user-select: none; }
         .prof-chip:hover { border-color: rgba(232,82,42,0.4); color: var(--text); }
-        .prof-chip.on { border-color: rgba(232,82,42,0.5); background: rgba(232,82,42,0.12); color: var(--text); }
+        .prof-chip.on { border-color: rgba(232,82,42,0.5); background: rgba(232,82,42,0.12); color: var(--accent); }
 
         /* ── Pill selects ── */
         .prof-pills { display: flex; flex-wrap: wrap; gap: 0.5rem; }
@@ -249,10 +249,10 @@ export default function ProfilePage() {
         .prof-custom-textarea {
           width: 100%;
           padding: 0.8rem 1rem;
-          background: rgba(255,255,255,0.04);
-          border: 1px solid rgba(255,255,255,0.1);
+          background: var(--input-bg);
+          border: 1px solid var(--border2);
           border-radius: 13px;
-          color: #f2ede4;
+          color: var(--text);
           font: 0.88rem 'DM Sans', sans-serif;
           outline: none;
           resize: vertical;
@@ -261,7 +261,7 @@ export default function ProfilePage() {
           transition: border-color 0.2s, box-shadow 0.2s;
           box-sizing: border-box;
         }
-        .prof-custom-textarea::placeholder { color: rgba(255,255,255,0.22); }
+        .prof-custom-textarea::placeholder { color: var(--muted); opacity: 0.5; }
         .prof-custom-textarea:focus {
           border-color: rgba(232,82,42,0.5);
           background: rgba(232,82,42,0.04);
@@ -271,8 +271,8 @@ export default function ProfilePage() {
 
         /* ── Action buttons ── */
         .prof-btn-row { display: flex; flex-wrap: wrap; gap: 0.6rem; }
-        .prof-btn-ghost { font: 500 0.84rem 'DM Sans', sans-serif; cursor: pointer; padding: 0.5rem 1.05rem; border-radius: 100px; border: 1px solid rgba(255,255,255,0.13); background: transparent; color: var(--text); transition: all 0.18s; }
-        .prof-btn-ghost:hover:not(:disabled) { border-color: rgba(232,82,42,0.45); background: rgba(232,82,42,0.06); }
+        .prof-btn-ghost { font: 500 0.84rem 'DM Sans', sans-serif; cursor: pointer; padding: 0.5rem 1.05rem; border-radius: 100px; border: 1px solid var(--border2); background: transparent; color: var(--text); transition: all 0.18s; }
+        .prof-btn-ghost:hover:not(:disabled) { border-color: rgba(232,82,42,0.45); background: var(--glass-hover); }
         .prof-btn-ghost:disabled { opacity: 0.45; cursor: not-allowed; }
         .prof-btn-accent { font: 700 0.88rem 'DM Sans', sans-serif; cursor: pointer; padding: 0.6rem 1.4rem; border-radius: 100px; border: none; background: var(--accent); color: #fff; box-shadow: 0 4px 18px rgba(232,82,42,0.3); transition: all 0.2s; }
         .prof-btn-accent:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(232,82,42,0.4); }
@@ -284,19 +284,19 @@ export default function ProfilePage() {
         /* ── Edit name elements ── */
         .prof-name-input {
           flex: 1;
-          background: rgba(255,255,255,0.06);
+          background: var(--input-bg);
           border: 1px solid rgba(232,82,42,0.3);
           border-radius: 8px;
           padding: 0.4rem 0.7rem;
-          color: #f2ede4;
+          color: var(--text);
           font: 600 0.9rem 'DM Sans', sans-serif;
           outline: none;
         }
         .prof-name-row { display: flex; align-items: center; gap: 0.7rem; flex: 1; }
         .prof-edit-btn {
           font: 600 0.72rem 'DM Sans', sans-serif;
-          background: rgba(255,255,255,0.06);
-          border: 1px solid rgba(255,255,255,0.1);
+          background: var(--input-bg);
+          border: 1px solid var(--border2);
           color: var(--muted);
           padding: 0.3rem 0.6rem;
           border-radius: 6px;
@@ -426,12 +426,12 @@ export default function ProfilePage() {
 
             <div className="prof-section">
               <p className="prof-section-label">Profile completion</p>
-              <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 14, padding: '1rem 1.15rem' }}>
+              <div style={{ background: 'var(--input-bg)', border: '1px solid var(--border2)', borderRadius: 14, padding: '1rem 1.15rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.6rem', fontSize: '0.88rem' }}>
-                  <span style={{ fontWeight: 600 }}>62% complete</span>
+                  <span style={{ fontWeight: 600, color: 'var(--text)' }}>62% complete</span>
                   <span style={{ color: 'var(--muted)', fontSize: '0.8rem' }}>Set preferences to reach 100%</span>
                 </div>
-                <div style={{ height: 8, borderRadius: 100, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                <div style={{ height: 8, borderRadius: 100, background: 'var(--border)', overflow: 'hidden' }}>
                   <div style={{ height: '100%', width: '62%', borderRadius: 100, background: 'linear-gradient(90deg, var(--accent), var(--accent2))' }} />
                 </div>
               </div>

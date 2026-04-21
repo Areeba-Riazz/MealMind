@@ -186,35 +186,36 @@ export default function MealPlannerPage() {
         @keyframes mpfade { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
 
         .mp-head { margin-bottom: 1.35rem; }
-        .mp-head h2 { font-family:'Syne',sans-serif; font-size:1.2rem; font-weight:800; margin:0 0 0.35rem; color:#f2ede4; }
-        .mp-head p { font-size:0.84rem; color:rgba(255,255,255,0.38); margin:0; line-height:1.45; }
+        .mp-head h2 { font-family:'Syne',sans-serif; font-size:1.2rem; font-weight:800; margin:0 0 0.35rem; color:var(--text); }
+        .mp-head p { font-size:0.84rem; color:var(--muted); margin:0; line-height:1.45; }
 
         .mp-toolbar {
           display:flex; flex-wrap:wrap; align-items:center; gap:0.75rem;
           padding:1rem 1.15rem; margin-bottom:1.1rem;
-          background:rgba(22,22,22,0.75); border:1px solid rgba(255,255,255,0.07); border-radius:16px;
+          background:var(--dash-card-bg); border:1px solid var(--border2); border-radius:16px;
         }
         .mp-week-nav { display:flex; align-items:center; gap:0.45rem; flex-wrap:wrap; flex:1; min-width:0; }
         .mp-nav-btn {
           font:600 0.8rem 'DM Sans',sans-serif; cursor:pointer; padding:0.4rem 0.85rem; border-radius:100px;
-          border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.04); color:rgba(255,255,255,0.8);
+          border:1px solid var(--border2); background:var(--input-bg); color:var(--text);
           transition:all 0.18s;
         }
         .mp-nav-btn:hover { border-color:rgba(232,82,42,0.45); color:var(--accent); }
-        .mp-week-label { font:700 0.82rem 'DM Sans',sans-serif; color:#f2ede4; margin:0 0.35rem; }
+        .mp-week-label { font:700 0.82rem 'DM Sans',sans-serif; color:var(--text); margin:0 0.35rem; }
 
-        .mp-cal-wrap { display:flex; align-items:center; gap:0.45rem; font-size:0.78rem; color:rgba(255,255,255,0.4); }
+        .mp-cal-wrap { display:flex; align-items:center; gap:0.45rem; font-size:0.78rem; color:var(--muted); }
         .mp-cal-wrap input[type="date"] {
           font:600 0.78rem 'DM Sans',sans-serif; padding:0.38rem 0.65rem; border-radius:10px;
-          border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.05); color:#f2ede4;
+          border:1px solid var(--border2); background:var(--input-bg); color:var(--text);
           cursor:pointer;
         }
-        .mp-cal-wrap input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.85); cursor: pointer; }
+        .mp-cal-wrap input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; }
+        [data-theme='dark'] .mp-cal-wrap input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.85); }
 
         .mp-days-row { display:flex; gap:0.4rem; flex-wrap:wrap; margin-bottom:1.15rem; }
         .mp-day-chip {
           font:600 0.76rem 'DM Sans',sans-serif; cursor:pointer; padding:0.5rem 0.75rem; border-radius:12px;
-          border:1px solid rgba(255,255,255,0.1); background:rgba(255,255,255,0.03); color:rgba(255,255,255,0.45);
+          border:1px solid var(--border2); background:var(--input-bg); color:var(--muted);
           transition:all 0.18s; min-width:3.2rem; text-align:center;
         }
         .mp-day-chip:hover { border-color:rgba(232,82,42,0.35); color:rgba(255,255,255,0.75); }
@@ -222,26 +223,26 @@ export default function MealPlannerPage() {
         .mp-day-chip .mp-dn { display:block; font-size:0.65rem; font-weight:600; opacity:0.55; margin-top:0.12rem; }
 
         .mp-panel {
-          background:rgba(22,22,22,0.75); border:1px solid rgba(255,255,255,0.07); border-radius:18px; padding:1.25rem 1.35rem;
+          background:var(--dash-card-bg); border:1px solid var(--border2); border-radius:18px; padding:1.25rem 1.35rem;
           backdrop-filter:blur(12px);
         }
         .mp-panel-title {
-          font:800 0.72rem 'Syne',sans-serif; letter-spacing:0.06em; text-transform:uppercase; color:rgba(255,255,255,0.35);
-          margin:0 0 1rem; padding-bottom:0.75rem; border-bottom:1px solid rgba(255,255,255,0.06);
+          font:800 0.72rem 'Syne',sans-serif; letter-spacing:0.06em; text-transform:uppercase; color:var(--muted);
+          margin:0 0 1rem; padding-bottom:0.75rem; border-bottom:1px solid var(--border);
         }
-        .mp-panel-title strong { color:#f2ede4; font-size:1.05rem; letter-spacing:0; text-transform:none; font-family:'DM Sans',sans-serif; }
+        .mp-panel-title strong { color:var(--text); font-size:1.05rem; letter-spacing:0; text-transform:none; font-family:'DM Sans',sans-serif; }
 
         .mp-slot { margin-bottom:1.15rem; }
         .mp-slot:last-child { margin-bottom:0; }
         .mp-slot-h {
-          font:600 0.78rem 'DM Sans',sans-serif; color:rgba(255,255,255,0.5); margin:0 0 0.5rem;
+          font:600 0.78rem 'DM Sans',sans-serif; color:var(--muted); margin:0 0 0.5rem;
           display:flex; align-items:center; gap:0.4rem;
         }
         .mp-items { list-style:none; margin:0 0 0.5rem; padding:0; display:flex; flex-direction:column; gap:0.32rem; }
         .mp-item {
           display:flex; align-items:center; justify-content:space-between; gap:0.5rem;
-          font-size:0.84rem; color:rgba(255,255,255,0.78); padding:0.4rem 0.55rem; border-radius:10px;
-          background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.06);
+          font-size:0.84rem; color:var(--text); padding:0.4rem 0.55rem; border-radius:10px;
+          background:var(--input-bg); border:1px solid var(--border2);
         }
         .mp-item button {
           flex-shrink:0; border:none; background:transparent; color:rgba(255,255,255,0.28); cursor:pointer; font-size:1.1rem; line-height:1; padding:0 0.2rem;
@@ -250,10 +251,10 @@ export default function MealPlannerPage() {
 
         .mp-add { display:flex; flex-direction:column; gap:0.4rem; }
         .mp-add input {
-          width:100%; box-sizing:border-box; padding:0.55rem 0.7rem; border-radius:10px; border:1px solid rgba(255,255,255,0.1);
-          background:rgba(255,255,255,0.04); color:#f2ede4; font:0.8rem 'DM Sans',sans-serif; outline:none;
+          width:100%; box-sizing:border-box; padding:0.55rem 0.7rem; border-radius:10px; border:1px solid var(--border2);
+          background:var(--input-bg); color:var(--text); font:0.8rem 'DM Sans',sans-serif; outline:none;
         }
-        .mp-add input:focus { border-color:rgba(232,82,42,0.45); }
+        .mp-add input:focus { border-color:var(--accent); }
         .mp-add-row { display:flex; gap:0.4rem; }
         .mp-add-btn {
           font:600 0.75rem 'DM Sans',sans-serif; cursor:pointer; padding:0.5rem 0.85rem; border-radius:100px; border:none;
@@ -263,11 +264,11 @@ export default function MealPlannerPage() {
         .mp-hints { display:flex; flex-wrap:wrap; gap:0.35rem; }
         .mp-hint {
           font:500 0.65rem 'DM Sans',sans-serif; cursor:pointer; padding:0.25rem 0.55rem; border-radius:100px;
-          border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.03); color:rgba(255,255,255,0.4);
+          border:1px solid var(--border2); background:var(--input-bg); color:var(--muted);
         }
         .mp-hint:hover { border-color:rgba(232,82,42,0.35); color:var(--accent); }
 
-        .mp-note { margin-top:1.35rem; font-size:0.78rem; color:rgba(255,255,255,0.28); line-height:1.5; }
+        .mp-note { margin-top:1.35rem; font-size:0.78rem; color:var(--muted); opacity:0.5; line-height:1.5; }
       `}</style>
 
       <div className="mp-wrap">

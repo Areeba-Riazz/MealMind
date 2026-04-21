@@ -49,7 +49,7 @@ export default function Sidebar() {
         .sb {
           display: flex;
           flex-direction: column;
-          width: 220px;
+          width: 260px;
           flex-shrink: 0;
           height: 100vh;
           position: sticky;
