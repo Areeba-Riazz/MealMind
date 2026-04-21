@@ -297,7 +297,7 @@ function formatResults(places, userLat, userLng) {
       priceLevel: place.price_level ?? 0,
       rating: place.rating ?? 0,
       orderLink: `https://www.google.com/maps/place/?q=place_id:${place.place_id ?? ""}`,
-      // Include coordinates so the frontend can plot Leaflet markers
+      phone: place.formatted_phone_number ?? place.international_phone_number ?? null,
       lat: placeLat ?? null,
       lng: placeLng ?? null,
     };
@@ -320,7 +320,6 @@ async function searchPlaces(foodTerm, lat, lng, area) {
     throw new Error("GOOGLE_MAPS_API_KEY is not configured");
   }
 
-  // Build the query: combine food term with area or rely on location bias
   const query = area ? `${foodTerm} in ${area}` : foodTerm;
 
   const params = new URLSearchParams({
@@ -329,10 +328,9 @@ async function searchPlaces(foodTerm, lat, lng, area) {
     type: "restaurant",
   });
 
-  // Add location bias when coordinates are available
   if (lat != null && lng != null) {
     params.set("location", `${lat},${lng}`);
-    params.set("radius", "5000"); // 5 km radius
+    params.set("radius", "5000");
   }
 
   const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?${params.toString()}`;
@@ -348,9 +346,39 @@ async function searchPlaces(foodTerm, lat, lng, area) {
     throw new Error(`Places API error: ${data.status} — ${data.error_message ?? ""}`);
   }
 
-  return data.results ?? [];
-}
+  const places = data.results ?? [];
 
+  // Fetch phone numbers for top 5 results via Place Details API
+  const detailsPromises = places.slice(0, 5).map(async (place) => {
+    if (!place.place_id) return place;
+    try {
+      const detailParams = new URLSearchParams({
+        place_id: place.place_id,
+        fields: "formatted_phone_number,international_phone_number",
+        key: apiKey,
+      });
+      const detailRes = await fetch(
+        `https://maps.googleapis.com/maps/api/place/details/json?${detailParams.toString()}`
+      );
+      if (!detailRes.ok) return place;
+      const detailData = await detailRes.json();
+      if (detailData.status === "OK" && detailData.result) {
+        return {
+          ...place,
+          formatted_phone_number: detailData.result.formatted_phone_number ?? null,
+          international_phone_number: detailData.result.international_phone_number ?? null,
+        };
+      }
+    } catch {
+      // non-fatal — just return place without phone
+    }
+    return place;
+  });
+
+  const topWithPhones = await Promise.all(detailsPromises);
+  // Merge enriched top-5 back with the rest (rest won't be used but keep array intact)
+  return [...topWithPhones, ...places.slice(5)];
+}
 /**
  * POST /api/cravings
  * Accepts { query, lat?, lng?, area? } and returns { results, message? } or { error }.
