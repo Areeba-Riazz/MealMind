@@ -53,7 +53,7 @@ export default function AppShellLayout() {
           font-weight: 800;
           letter-spacing: -0.3px;
           margin: 0 0 0.1rem;
-          color: #f2ede4;
+          color: var(--text);
         }
         .mm-topbar-left p {
           font-size: 0.77rem;
