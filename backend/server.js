@@ -331,95 +331,97 @@ function foodpandaSearchUrl(name, city) {
 }
 
 /**
- * Runs three focused Tavily searches for a restaurant (Instagram, Facebook, FoodPanda),
- * then uses Gemini to extract only high-confidence direct profile/listing URLs.
+ * Enriches ALL restaurants in one batch:
+ * - Fires 2 Tavily queries per restaurant in parallel (social + foodpanda)
+ * - Sends all results to a SINGLE Gemini call that extracts links for every restaurant at once
+ * - Returns an array of link objects aligned to the input array by index
  *
- * All searches run in parallel. Gemini extraction is a single fast call over the
- * combined results. Entire function is non-fatal — returns empty object on any failure.
+ * Non-fatal: any failure returns an array of empty objects.
  *
- * @param {string} name  Restaurant name as returned by Google Places
- * @param {string} city  City extracted from formatted_address or resolved area
- * @returns {Promise<{ instagramUrl?: string, facebookUrl?: string, foodpandaUrl?: string }>}
+ * @param {Array<{ name: string, city: string }>} restaurants
+ * @returns {Promise<Array<{ instagramUrl?: string, facebookUrl?: string, foodpandaUrl?: string }>>}
  */
-async function enrichRestaurantLinks(name, city) {
+async function enrichAllRestaurantLinks(restaurants) {
   const tavilyKey = process.env.TAVILY_API_KEY;
   const geminiKey = process.env.GEMINI_API_KEY;
-  if (!tavilyKey || !geminiKey) return {};
+  const empty = restaurants.map(() => ({}));
+  if (!tavilyKey || !geminiKey || restaurants.length === 0) return empty;
 
   const tavily = new TavilyClient({ apiKey: tavilyKey });
 
-  // Three targeted queries — each scoped to one platform
-  const queries = [
-    `"${name}" "${city}" site:instagram.com`,
-    `"${name}" "${city}" site:facebook.com`,
-    `"${name}" "${city}" site:foodpanda.pk`,
-  ];
-
-  let allResults = [];
-  try {
-    const searches = await Promise.all(
-      queries.map((q) =>
+  // Fire all Tavily queries in parallel — 2 per restaurant
+  const tavilyResults = await Promise.all(
+    restaurants.map(({ name, city }) =>
+      Promise.all([
         tavily
-          .search(q, { search_depth: "basic", max_results: 3, include_answer: false })
+          .search(`"${name}" "${city}" (site:instagram.com OR site:facebook.com)`, {
+            search_depth: "basic", max_results: 3, include_answer: false,
+          })
           .then((r) => r.results ?? [])
-          .catch(() => []) // individual query failure is non-fatal
-      )
-    );
-    allResults = searches.flat();
-  } catch {
-    return {};
-  }
+          .catch(() => []),
+        tavily
+          .search(`"${name}" "${city}" site:foodpanda.pk`, {
+            search_depth: "basic", max_results: 3, include_answer: false,
+          })
+          .then((r) => r.results ?? [])
+          .catch(() => []),
+      ]).then(([social, fp]) => [...social, ...fp])
+    )
+  );
 
-  if (allResults.length === 0) return {};
+  // Build one compact context block per restaurant, clearly labelled by index
+  const sections = restaurants.map(({ name, city }, i) => {
+    const hits = tavilyResults[i];
+    if (hits.length === 0) return `[Restaurant ${i + 1}] "${name}" in "${city}"\n  No results found.`;
+    const lines = hits
+      .map((r) => `  - URL: ${r.url}\n    Title: ${r.title}\n    Snippet: ${(r.content ?? "").slice(0, 100)}`)
+      .join("\n");
+    return `[Restaurant ${i + 1}] "${name}" in "${city}"\n${lines}`;
+  }).join("\n\n");
 
-  // Build a compact context block for Gemini — url + title + first 120 chars of content
-  const context = allResults
-    .map((r, i) => `[${i + 1}] URL: ${r.url}\n    Title: ${r.title}\n    Snippet: ${(r.content ?? "").slice(0, 120)}`)
-    .join("\n\n");
+  const prompt = `You are extracting social media and ordering links for a list of restaurants.
 
-  const prompt = `You are extracting social media and ordering links for a restaurant.
+${sections}
 
-Restaurant: "${name}" in "${city}"
+For EACH restaurant, extract the following — only if you are highly confident the URL belongs to THAT specific restaurant:
+- instagramUrl: profile page only (instagram.com/<handle>). Reject /reel/, /p/, /stories/ URLs.
+- facebookUrl: page only (facebook.com/<page>). Reject /posts/, /photos/, /videos/ URLs.
+- foodpandaUrl: direct listing only — must contain "/restaurant/" in the path. Reject city/search pages or wrong restaurants.
 
-Search results:
-${context}
+Return null for any field you cannot confirm with high confidence.
+Do NOT cross-assign links between restaurants.
 
-Rules:
-- instagramUrl: must be a profile page (instagram.com/<handle>) — NOT a reel, post, or story URL. Reject any URL containing /reel/, /p/, /stories/.
-- facebookUrl: must be a page URL (facebook.com/<page>) — NOT a post or photo URL. Reject any URL containing /posts/, /photos/, /videos/.
-- foodpandaUrl: must be a direct restaurant listing on foodpanda.pk — must contain "/restaurant/" in the path. Reject city pages, search pages, or other restaurants.
-- Only include a URL if you are highly confident it belongs to THIS restaurant ("${name}"), not a different restaurant with a similar name.
-- Return null for any field you cannot confirm.
-
-Respond ONLY with valid JSON, no markdown:
-{
-  "instagramUrl": "<url or null>",
-  "facebookUrl": "<url or null>",
-  "foodpandaUrl": "<url or null>"
-}`;
+Respond ONLY with a valid JSON array of ${restaurants.length} objects in the same order, no markdown:
+[
+  { "instagramUrl": "<url or null>", "facebookUrl": "<url or null>", "foodpandaUrl": "<url or null>" }
+]`;
 
   try {
     const genAI = new GoogleGenerativeAI(geminiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
     const result = await model.generateContent(prompt);
-    let text = result.response.text().replace(/```json/g, "").replace(/```/g, "").trim();
+    const text = result.response.text().replace(/```json/g, "").replace(/```/g, "").trim();
     const parsed = JSON.parse(text);
 
-    const out = {};
+    if (!Array.isArray(parsed)) return empty;
 
-    // Validate each extracted URL structurally before returning
-    const ig = sanitiseWebsite(parsed.instagramUrl);
-    if (ig && /instagram\.com\/(?!reel|p\/|stories)[\w.]+/.test(ig)) out.instagramUrl = ig;
+    return parsed.map((item) => {
+      if (!item || typeof item !== "object") return {};
+      const out = {};
 
-    const fb = sanitiseWebsite(parsed.facebookUrl);
-    if (fb && /facebook\.com\/(?!posts|photos|videos)[\w.]+/.test(fb)) out.facebookUrl = fb;
+      const ig = sanitiseWebsite(item.instagramUrl);
+      if (ig && /instagram\.com\/(?!reel|p\/|stories)[\w.]+/.test(ig)) out.instagramUrl = ig;
 
-    const fp = sanitiseWebsite(parsed.foodpandaUrl);
-    if (fp && /foodpanda\.pk\/restaurant\//.test(fp)) out.foodpandaUrl = fp;
+      const fb = sanitiseWebsite(item.facebookUrl);
+      if (fb && /facebook\.com\/(?!posts|photos|videos)[\w.]+/.test(fb)) out.facebookUrl = fb;
 
-    return out;
+      const fp = sanitiseWebsite(item.foodpandaUrl);
+      if (fp && /foodpanda\.pk\/restaurant\//.test(fp)) out.foodpandaUrl = fp;
+
+      return out;
+    });
   } catch {
-    return {};
+    return empty;
   }
 }
 
@@ -651,20 +653,24 @@ app.post("/api/cravings", async (req, res) => {
   // Requirement 1.4 — cap at 5, build CravingResult objects
   const results = formatResults(ordered, userLat, userLng);
 
-  // Enrich each result with social/ordering links via Tavily + Gemini (parallel, non-fatal)
-  const enriched = await Promise.all(
-    results.map(async (r) => {
-      const links = await enrichRestaurantLinks(r.name, cityFromAddress(r.address, resolvedArea));
-      return {
-        ...r,
-        ...(links.foodpandaUrl
-          ? { foodpandaLink: links.foodpandaUrl, foodpandaIsDirect: true }
-          : {}),
-        instagramUrl: links.instagramUrl ?? null,
-        facebookUrl: links.facebookUrl ?? null,
-      };
-    })
-  );
+  // Enrich all results with social/ordering links — all Tavily calls parallel, one Gemini call
+  const restaurantsToEnrich = results.map((r) => ({
+    name: r.name,
+    city: cityFromAddress(r.address, resolvedArea),
+  }));
+  const enrichments = await enrichAllRestaurantLinks(restaurantsToEnrich);
+
+  const enriched = results.map((r, i) => {
+    const links = enrichments[i] ?? {};
+    return {
+      ...r,
+      ...(links.foodpandaUrl
+        ? { foodpandaLink: links.foodpandaUrl, foodpandaIsDirect: true }
+        : {}),
+      instagramUrl: links.instagramUrl ?? null,
+      facebookUrl: links.facebookUrl ?? null,
+    };
+  });
 
   return res.status(200).json({ results: enriched });
 });
@@ -892,5 +898,5 @@ module.exports = {
   extractPhones,
   foodpandaSearchUrl,
   cityFromAddress,
-  enrichRestaurantLinks,
+  enrichAllRestaurantLinks,
 };
