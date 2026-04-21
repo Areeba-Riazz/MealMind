@@ -12,7 +12,6 @@ const NAV_ITEMS = [
   { to: '/meal-planner', label: 'Meal Planner', emoji: '📅' },
   { to: '/saved', label: 'Saved Recipes', emoji: '📖' },
   { to: '/food-links', label: 'Food Links', emoji: '🔗' },
-  { to: '/profile', label: 'Profile', emoji: '⚙️' },
 ];
 
 export default function Sidebar() {
@@ -215,6 +214,13 @@ export default function Sidebar() {
           margin-bottom: 0.55rem;
           min-width: 0;
           overflow: hidden;
+          text-decoration: none;
+          transition: all 0.2s ease;
+        }
+        .sb-user-card:hover {
+          background: var(--glass-hover);
+          border-color: rgba(232,82,42,0.3);
+          transform: translateY(-1px);
         }
         .sb.sb-c .sb-user-card {
           justify-content: center;
@@ -341,13 +347,13 @@ export default function Sidebar() {
 
         {/* User footer */}
         <div className="sb-footer">
-          <div className="sb-user-card" title={collapsed ? label : undefined}>
+          <NavLink to="/profile" className="sb-user-card" title={collapsed ? label : undefined}>
             <div className="sb-avatar">{initials}</div>
             <div className="sb-user-info">
               <div className="sb-user-name">{label}</div>
               <div className="sb-user-plan">Free tier</div>
             </div>
-          </div>
+          </NavLink>
           <button className="sb-theme-toggle" onClick={toggleTheme} title={collapsed ? 'Toggle Theme' : undefined}>
             <span>{theme === 'dark' ? '☀️' : '🌙'}</span>
             <span className="sb-theme-text"> {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>

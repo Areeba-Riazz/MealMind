@@ -1,0 +1,195 @@
+BACKEND MODULARISATION PLAN
+============================
+Current state: all ~900 lines live in a single server.js file — route handlers,
+business logic, utility functions, and server bootstrap are all mixed together.
+This plan splits it into focused modules without changing any behaviour.
+
+
+PROPOSED FILE STRUCTURE
+------------------------
+backend/
+├── server.js                   (entry point — bootstrap only, ~30 lines)
+├── app.js                      (Express app setup + route mounting, ~40 lines)
+├── config.js                   (env validation + constants, ~30 lines)
+│
+├── routes/
+│   ├── cravings.js             (POST /api/cravings)
+│   ├── recommend.js            (POST /api/recommend)
+│   └── chat.js                 (POST /api/chat)
+│
+├── services/
+│   ├── gemini.js               (all Gemini API interactions)
+│   ├── places.js               (Google Places Text Search + Place Details)
+│   ├── tavily.js               (all Tavily search interactions)
+│   └── enrichment.js           (enrichAllRestaurantLinks — orchestrates tavily + gemini)
+│
+└── utils/
+    ├── geo.js                  (haversineKm, parseLatitude, parseLongitude,
+    │                            sortRawPlacesByDistance, distanceToRawPlace,
+    │                            cityFromAddress)
+    ├── pricing.js              (PRICE_TIER_MAP, mapPriceLevel, placePriceLevel,
+    │                            filterByPrice)
+    ├── formatting.js           (formatResults, extractPhones, sanitiseWebsite,
+    │                            foodpandaSearchUrl)
+    └── nutrition.js            (normalizeNutrition)
+
+
+FILE-BY-FILE BREAKDOWN
+-----------------------
+
+server.js  (entry point)
+  - Calls dotenv.config()
+  - Imports app from app.js
+  - Starts the HTTP server on PORT 5000
+  - Handles the EADDRINUSE error + NODE_ENV test guard
+  - Nothing else — no routes, no logic
+
+app.js  (Express app factory)
+  - Creates the Express instance
+  - Applies cors() middleware using ALLOWED_ORIGINS from config.js
+  - Applies express.json()
+  - Mounts routes:
+      app.use('/api/cravings', cravingsRouter)
+      app.use('/api/recommend', recommendRouter)
+      app.use('/api/chat', chatRouter)
+  - Exports the app (makes it testable without starting a server)
+
+config.js  (environment + constants)
+  - Reads and validates all process.env keys
+  - Exports: GEMINI_API_KEY, GOOGLE_MAPS_API_KEY, TAVILY_API_KEY,
+             FRONTEND_URL, ALLOWED_ORIGINS
+  - Logs the GOOGLE_MAPS_API_KEY missing warning here, once, on import
+  - Single source of truth — no other file reads process.env directly
+
+
+routes/cravings.js
+  - Imports: parseQuery from services/gemini.js
+             searchPlaces from services/places.js
+             enrichAllRestaurantLinks from services/enrichment.js
+             filterByPrice from utils/pricing.js
+             sortRawPlacesByDistance, cityFromAddress from utils/geo.js
+             formatResults from utils/formatting.js
+             parseLatitude, parseLongitude from utils/geo.js
+  - Contains only the route handler logic (validation, orchestration, response)
+  - No direct API calls — delegates entirely to services
+
+routes/recommend.js
+  - Imports: searchRecipesOnline from services/tavily.js
+             normalizeNutrition from utils/nutrition.js
+             GEMINI_API_KEY from config.js
+  - Contains only the /api/recommend handler
+
+routes/chat.js
+  - Imports: systemInstructionContent, userFacingChatError from services/gemini.js
+             GEMINI_API_KEY from config.js
+  - Contains only the /api/chat handler
+
+
+services/gemini.js
+  - Owns the GoogleGenerativeAI client instantiation
+  - Exports:
+      parseQuery(query)                  — NL query → { foodTerm, maxPricePkr, area }
+      extractLinksForRestaurants(        — batch link extraction (was inline in enrichment)
+        restaurants, tavilyResultsMap
+      )
+      systemInstructionContent(text)     — helper for chat system prompt
+      userFacingChatError(err)           — error message sanitiser for chat
+      generateRecipeRecommendation(...)  — wraps the /api/recommend Gemini call
+      generateChatReply(messages, prefs) — wraps the /api/chat Gemini call
+  - No route logic, no Tavily calls, no Places calls
+
+services/places.js
+  - Owns all Google Maps API interactions
+  - Exports:
+      searchPlaces(foodTerm, lat, lng, area)  — Text Search + Place Details in one call
+  - Internally handles the Place Details enrichment loop (phones + website)
+  - Reads GOOGLE_MAPS_API_KEY from config.js
+
+services/tavily.js
+  - Owns the TavilyClient instance
+  - Exports:
+      searchRecipesOnline(ingredients, goal)  — used by /api/recommend
+      searchRestaurantSocialLinks(            — fires the 2 parallel queries per restaurant
+        restaurants                           — returns raw results array per restaurant
+      )
+  - No Gemini calls, no formatting — pure data retrieval
+  - Reads TAVILY_API_KEY from config.js
+
+services/enrichment.js
+  - Orchestrates tavily.js + gemini.js for the link enrichment pipeline
+  - Exports:
+      enrichAllRestaurantLinks(restaurants)
+  - Calls searchRestaurantSocialLinks() then extractLinksForRestaurants()
+  - Applies the post-extraction URL validation (sanitiseWebsite + regex checks)
+  - This is the only file that knows about both Tavily and Gemini together
+
+
+utils/geo.js
+  - Pure functions, no I/O
+  - Exports: haversineKm, parseLatitude, parseLongitude,
+             sortRawPlacesByDistance, distanceToRawPlace, cityFromAddress
+
+utils/pricing.js
+  - Pure functions, no I/O
+  - Exports: PRICE_TIER_MAP, mapPriceLevel, placePriceLevel, filterByPrice
+
+utils/formatting.js
+  - Pure functions, no I/O
+  - Exports: formatResults, extractPhones, sanitiseWebsite, foodpandaSearchUrl
+
+utils/nutrition.js
+  - Pure functions, no I/O
+  - Exports: normalizeNutrition
+
+
+TESTING IMPACT
+---------------
+Current server.test.js imports pure functions directly from server.js.
+After the split, imports change to point at the relevant utils/ file:
+
+  Before:  const { haversineKm, filterByPrice } = require('./server.js')
+  After:   const { haversineKm } = require('./utils/geo.js')
+           const { filterByPrice } = require('./utils/pricing.js')
+
+server.js no longer needs to export anything — all exports move to their modules.
+Test files can also be split to mirror the module structure:
+  utils/geo.test.js, utils/pricing.test.js, utils/formatting.test.js, etc.
+
+app.js can be imported in tests to test routes without starting a real server
+(using supertest), which is currently not possible.
+
+
+DEPENDENCY GRAPH (no circular dependencies)
+--------------------------------------------
+server.js
+  └── app.js
+        ├── config.js
+        ├── routes/cravings.js
+        │     ├── services/places.js      → config.js
+        │     ├── services/enrichment.js  → services/tavily.js
+        │     │                           → services/gemini.js
+        │     │                           → utils/formatting.js (sanitiseWebsite)
+        │     ├── services/gemini.js      → config.js
+        │     ├── utils/geo.js
+        │     ├── utils/pricing.js
+        │     └── utils/formatting.js
+        ├── routes/recommend.js
+        │     ├── services/tavily.js      → config.js
+        │     ├── services/gemini.js      → config.js
+        │     └── utils/nutrition.js
+        └── routes/chat.js
+              └── services/gemini.js      → config.js
+
+
+MIGRATION ORDER (if implementing incrementally)
+------------------------------------------------
+1. config.js          — no dependencies, safe to extract first
+2. utils/*            — pure functions, no dependencies, extract + update imports
+3. server.test.js     — update imports to point at utils/ (tests stay green)
+4. services/places.js — depends only on config.js
+5. services/tavily.js — depends only on config.js
+6. services/gemini.js — depends only on config.js
+7. services/enrichment.js — depends on tavily + gemini + utils
+8. routes/*           — depends on all services + utils
+9. app.js             — mounts routes
+10. server.js         — stripped to bootstrap only
