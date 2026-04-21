@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { useTheme } from '../context/ThemeContext';
 
 // Fix Leaflet's broken default icon paths when bundled with Vite
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
@@ -53,17 +54,21 @@ function userIcon() {
   });
 }
 
-function restaurantIcon(index: number) {
+function restaurantIcon(index: number, isDark: boolean) {
+  const bgColor = isDark ? '#1a1a1a' : '#ffffff';
+  const boxShadow = isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)';
+  const textColor = '#e8522a';
+  
   return L.divIcon({
     className: '',
     html: `
       <div style="
         width:30px; height:30px; border-radius:50%;
-        background:#1a1a1a;
+        background:${bgColor};
         border:2px solid rgba(232,82,42,0.8);
-        box-shadow:0 2px 8px rgba(0,0,0,0.5);
+        box-shadow:0 2px 8px ${boxShadow};
         display:flex; align-items:center; justify-content:center;
-        font-size:12px; font-weight:800; color:#e8522a;
+        font-size:12px; font-weight:800; color:${textColor};
         font-family:'DM Sans',sans-serif;
       ">${index + 1}</div>`,
     iconSize: [30, 30],
@@ -75,6 +80,8 @@ function restaurantIcon(index: number) {
 export default function CravingsMap({ userLat, userLng, restaurants }: CravingsMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -99,8 +106,12 @@ export default function CravingsMap({ userLat, userLng, restaurants }: CravingsM
 
     mapInstanceRef.current = map;
 
-    // Dark-themed OpenStreetMap tile layer (CartoDB Dark Matter — free, no key)
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    // Theme-based tile layer
+    const tileLayer = isDark
+      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+      : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+    
+    L.tileLayer(tileLayer, {
       attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://openstreetmap.org/copyright">OSM</a>',
       subdomains: 'abcd',
       maxZoom: 19,
@@ -138,7 +149,7 @@ export default function CravingsMap({ userLat, userLng, restaurants }: CravingsM
           </a>
         </div>`;
 
-      L.marker([r.lat, r.lng], { icon: restaurantIcon(i) })
+      L.marker([r.lat, r.lng], { icon: restaurantIcon(i, isDark) })
         .addTo(map)
         .bindPopup(popup);
     });
@@ -152,20 +163,25 @@ export default function CravingsMap({ userLat, userLng, restaurants }: CravingsM
       map.remove();
       mapInstanceRef.current = null;
     };
-  }, [userLat, userLng, restaurants]);
+  }, [userLat, userLng, restaurants, isDark, theme]);
+
+  const headerBg = isDark ? 'rgba(22,22,22,0.9)' : 'rgba(255,255,255,0.7)';
+  const headerBorder = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.1)';
+  const borderColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.12)';
+  const textColor = isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.5)';
 
   return (
-    <div style={{ borderRadius: '18px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', marginTop: '1.6rem' }}>
+    <div style={{ borderRadius: '18px', overflow: 'hidden', border: `1px solid ${borderColor}`, marginTop: '1.6rem' }}>
       {/* Map header */}
       <div style={{
-        background: 'rgba(22,22,22,0.9)',
+        background: headerBg,
         padding: '0.75rem 1.2rem',
         display: 'flex',
         alignItems: 'center',
         gap: '0.5rem',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        borderBottom: `1px solid ${headerBorder}`,
       }}>
-        <span style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: 'rgba(255,255,255,0.35)' }}>
+        <span style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: textColor }}>
           🗺️ Restaurant Map
         </span>
         {userLat != null && (

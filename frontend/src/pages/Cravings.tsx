@@ -1,10 +1,14 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import CravingsMap from '../components/CravingsMap';
+import LocationPickerModal from '../components/LocationPickerModal';
 import SkeletonCard from '../components/SkeletonCard';
 import { useAuth } from '../context/AuthContext';
 import { useFoodLinks } from '../context/FoodLinksContext';
 import { useGeolocation } from '../hooks/useGeolocation';
+import { useLocationDisplay } from '../hooks/useLocationDisplay';
 import { logEvent } from '../lib/analytics';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface CravingResult {
   id: string;
@@ -13,10 +17,21 @@ interface CravingResult {
   distanceKm: number;
   priceLevel: number;
   rating: number;
-  orderLink: string;
-  phone: string | null;
   lat: number | null;
   lng: number | null;
+  // Ordering links
+  orderLink: string;           // kept for FoodLinks save-link compat (= googleMapsLink)
+  googleMapsLink: string;
+  foodpandaLink: string;       // direct listing if foodpandaIsDirect, else search fallback
+  foodpandaIsDirect: boolean;  // true = confirmed direct listing, false = search fallback
+  // Social links (null if not found)
+  instagramUrl: string | null;
+  facebookUrl: string | null;
+  // Contact
+  phones: string[];
+  phone: string | null;        // legacy
+  // Website (sanitised by backend)
+  website: string | null;
 }
 
 interface CravingsResponse {
@@ -33,61 +48,146 @@ const QUICK = [
   'Sushi: I want a freshly made sushi platter',
 ];
 
-function CravingOrderDropdown({
-  orderLink,
-  phone,
-  restaurantName,
-  onOrder,
+// ─── OrderMenu ────────────────────────────────────────────────────────────────
+
+interface OrderMenuItem {
+  key: string;
+  icon: string;
+  label: string;
+  href: string;
+  color?: string;
+  isCall?: boolean;
+}
+
+function buildMenuItems(result: CravingResult): OrderMenuItem[] {
+  const items: OrderMenuItem[] = [];
+
+  // FoodPanda — label differs based on whether it's a direct listing or search fallback
+  items.push({
+    key: 'foodpanda',
+    icon: '🟡',
+    label: result.foodpandaIsDirect ? 'Order on FoodPanda' : 'Search on FoodPanda',
+    href: result.foodpandaLink,
+    color: '#d70f64',
+  });
+
+  if (result.website) {
+    items.push({
+      key: 'website',
+      icon: '🌐',
+      label: 'Visit Website',
+      href: result.website,
+      color: '#4a9eff',
+    });
+  }
+
+  if (result.instagramUrl) {
+    items.push({
+      key: 'instagram',
+      icon: '📸',
+      label: 'Instagram',
+      href: result.instagramUrl,
+      color: '#e1306c',
+    });
+  }
+
+  if (result.facebookUrl) {
+    items.push({
+      key: 'facebook',
+      icon: '📘',
+      label: 'Facebook',
+      href: result.facebookUrl,
+      color: '#1877f2',
+    });
+  }
+
+  // One entry per phone number
+  const phones = result.phones?.length ? result.phones : (result.phone ? [result.phone] : []);
+  phones.forEach((phone, i) => {
+    const digits = phone.replace(/[^0-9+]/g, '');
+    items.push({
+      key: `phone-${i}`,
+      icon: '☎️',
+      label: phone,
+      href: `tel:${digits}`,
+      isCall: true,
+    });
+  });
+
+  items.push({
+    key: 'maps',
+    icon: '🗺️',
+    label: 'Directions (Maps)',
+    href: result.googleMapsLink ?? result.orderLink,
+    color: '#e8522a',
+  });
+
+  return items;
+}
+
+function OrderMenu({
+  result,
+  onAction,
 }: {
-  orderLink: string;
-  phone: string | null;
-  restaurantName: string;
-  onOrder: () => void;
+  result: CravingResult;
+  onAction: (label: string, href: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [focusedIndex, setFocusedIndex] = useState(-1);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const itemRefs = useRef<(HTMLAnchorElement | null)[]>([]);
 
-  const hasLink = Boolean(orderLink);
-  const hasPhone = Boolean(phone);
-  const phoneDigits = phone ? phone.replace(/[^0-9+]/g, '') : '';
+  const items = buildMenuItems(result);
+  const hasItems = items.length > 0;
 
+  // Close on outside click
   useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+    if (!open) return;
+    function onMouseDown(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false);
+        setFocusedIndex(-1);
       }
     }
-
-    if (open) {
-      document.addEventListener('mousedown', handleClick);
-    }
-
-    return () => document.removeEventListener('mousedown', handleClick);
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
   }, [open]);
 
-  if (hasLink && !hasPhone) {
-    return (
-      <a
-        href={orderLink}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="btn-order"
-        onClick={onOrder}
-      >
-        Order
-      </a>
-    );
+  // Focus management when menu opens
+  useEffect(() => {
+    if (open && focusedIndex >= 0) {
+      itemRefs.current[focusedIndex]?.focus();
+    }
+  }, [open, focusedIndex]);
+
+  function handleToggle() {
+    if (!open) {
+      setOpen(true);
+      setFocusedIndex(0);
+    } else {
+      setOpen(false);
+      setFocusedIndex(-1);
+    }
   }
 
-  if (hasPhone && !hasLink) {
-    return (
-      <a href={`tel:${phoneDigits}`} className="btn-order" onClick={onOrder}>
-        Call
-      </a>
-    );
+  function handleKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+    if (!open) return;
+    if (e.key === 'Escape') {
+      setOpen(false);
+      setFocusedIndex(-1);
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setFocusedIndex((i) => Math.min(i + 1, items.length - 1));
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setFocusedIndex((i) => Math.max(i - 1, 0));
+    }
   }
 
-  if (!hasLink && !hasPhone) {
+  if (!hasItems) {
     return (
       <span className="btn-order" style={{ opacity: 0.4, cursor: 'default' }}>
         No contact
@@ -96,34 +196,50 @@ function CravingOrderDropdown({
   }
 
   return (
-    <div className="crav-dropdown" ref={ref}>
-      <button type="button" className="btn-order" onClick={() => setOpen((value) => !value)}>
-        Order {open ? '^' : 'v'}
+    <div
+      className="crav-dropdown"
+      ref={containerRef}
+      onKeyDown={handleKeyDown}
+    >
+      <button
+        type="button"
+        className="btn-order"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={handleToggle}
+      >
+        Order Now {open ? '▲' : '▼'}
       </button>
+
       {open && (
-        <div className="crav-dropdown-menu" aria-label={`${restaurantName} contact options`}>
-          <a
-            href={orderLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="crav-dropdown-item"
-            onClick={() => {
-              setOpen(false);
-              onOrder();
-            }}
-          >
-            View on Google Maps
-          </a>
-          <a
-            href={`tel:${phoneDigits}`}
-            className="crav-dropdown-item"
-            onClick={() => {
-              setOpen(false);
-              onOrder();
-            }}
-          >
-            Call to Order
-          </a>
+        <div
+          className="crav-dropdown-menu"
+          role="menu"
+          aria-label={`${result.name} ordering options`}
+        >
+          {items.map((item, idx) => (
+            <a
+              key={item.key}
+              ref={(el) => { itemRefs.current[idx] = el; }}
+              href={item.href}
+              target={item.isCall ? undefined : '_blank'}
+              rel={item.isCall ? undefined : 'noopener noreferrer'}
+              className="crav-dropdown-item"
+              role="menuitem"
+              tabIndex={open ? 0 : -1}
+              style={item.color ? { '--item-color': item.color } as React.CSSProperties : undefined}
+              onClick={() => {
+                setOpen(false);
+                setFocusedIndex(-1);
+                onAction(item.label, item.href);
+              }}
+            >
+              <span className="crav-menu-icon">{item.icon}</span>
+              <span className="crav-menu-label" style={item.color ? { color: item.color } : undefined}>
+                {item.label}
+              </span>
+            </a>
+          ))}
         </div>
       )}
     </div>
@@ -140,6 +256,7 @@ export default function Cravings() {
 
   const { user } = useAuth();
   const geo = useGeolocation();
+  const loc = useLocationDisplay(user?.uid);
   const { links, addFoodLink, removeFoodLink } = useFoodLinks();
 
   const handleSearch = async (e: FormEvent) => {
@@ -152,7 +269,15 @@ export default function Cravings() {
     try {
       const body: Record<string, unknown> = { query };
 
-      if (geo.lat != null && geo.lng != null) {
+      if (loc.overrideArea) {
+        // If override has coords, use them for better accuracy
+        if (loc.overrideLat != null && loc.overrideLng != null) {
+          body.lat = loc.overrideLat;
+          body.lng = loc.overrideLng;
+        } else {
+          body.area = loc.overrideArea;
+        }
+      } else if (geo.lat != null && geo.lng != null) {
         body.lat = geo.lat;
         body.lng = geo.lng;
       } else if (area.trim()) {
@@ -187,7 +312,7 @@ export default function Cravings() {
         type: 'search_craving',
         metadata: {
           query,
-          location: geo.lat != null && geo.lng != null ? 'browser' : 'manual',
+          location: loc.overrideArea ? 'override' : (geo.lat != null && geo.lng != null ? 'browser' : 'manual'),
         },
       });
     } catch {
@@ -199,8 +324,8 @@ export default function Cravings() {
 
   const hasCoords = geo.lat != null && geo.lng != null;
   const geoReady = !geo.loading;
-  const needsArea = geoReady && !hasCoords;
-  const canSubmit = !loading && geoReady && query.trim() !== '';
+  const needsArea = geoReady && !hasCoords && !loc.overrideArea;
+  const canSubmit = !loading && (geoReady || loc.overrideArea != null) && query.trim() !== '';
 
   return (
     <>
@@ -226,19 +351,31 @@ export default function Cravings() {
         .crav-result-body { flex:1; min-width:0; }
         .crav-result-item { font-family:'Syne',sans-serif; font-size:1rem; font-weight:700; margin:0 0 0.2rem; color:var(--text); }
         .crav-result-rest { font-size:0.84rem; color:var(--muted); margin:0 0 0.45rem; font-weight:500; }
-        .crav-result-tags { display:flex; flex-wrap:wrap; gap:0.45rem; }
-        .crav-result-tag { display:inline-flex; align-items:center; gap:0.25rem; font-size:0.71rem; font-weight:600; color:var(--muted); background:var(--input-bg); border:1px solid var(--border2); border-radius:100px; padding:0.18rem 0.55rem; }
+        .crav-result-tags { display:flex; flex-wrap:nowrap; gap:0.45rem; overflow-x:auto; padding-bottom:2px; scrollbar-width:none; }
+        .crav-result-tags::-webkit-scrollbar { display:none; }
+        .crav-result-tag { display:inline-flex; align-items:center; gap:0.25rem; font-size:0.71rem; font-weight:600; color:var(--muted); background:var(--input-bg); border:1px solid var(--border2); border-radius:100px; padding:0.18rem 0.55rem; flex-shrink:0; white-space:nowrap; }
         .crav-result-tag.stars { color:#f5c842; border-color:rgba(245,200,66,0.25); background:rgba(245,200,66,0.06); }
+        .crav-result-tag.phone-tag { color:var(--text); text-decoration:none; cursor:pointer; }
+        .crav-result-tag.phone-tag:hover { border-color:var(--accent); color:var(--accent); }
+        .crav-result-tag.website-tag { color:#4a9eff; border-color:rgba(74,158,255,0.25); background:rgba(74,158,255,0.06); text-decoration:none; }
+        .crav-result-tag.website-tag:hover { background:rgba(74,158,255,0.12); }
+        .crav-result-tag.maps-tag { color:#e8522a; border-color:rgba(232,82,42,0.25); background:rgba(232,82,42,0.06); text-decoration:none; }
+        .crav-result-tag.maps-tag:hover { background:rgba(232,82,42,0.12); }
+        .crav-result-tag.fp-tag { color:#d70f64; border-color:rgba(215,15,100,0.25); background:rgba(215,15,100,0.06); text-decoration:none; }
+        .crav-result-tag.fp-tag:hover { background:rgba(215,15,100,0.12); }
         .crav-card-actions { display:flex; flex-direction:column; gap:0.4rem; align-items:flex-end; flex-shrink:0; }
         .crav-save-btn { background:transparent; border:1px solid var(--border2); border-radius:100px; padding:0.35rem 0.7rem; font-size:0.82rem; cursor:pointer; color:var(--muted); white-space:nowrap; }
         .crav-save-btn:hover { border-color:var(--accent); color:var(--accent); }
         .btn-order { padding:0.45rem 1rem; border-radius:100px; border:1px solid var(--border2); background:transparent; color:var(--text); font:700 0.82rem 'DM Sans',sans-serif; text-decoration:none; transition:all 0.18s; white-space:nowrap; cursor:pointer; display:inline-flex; align-items:center; gap:0.3rem; }
         .btn-order:hover { border-color:var(--accent); background:rgba(232,82,42,0.08); color:var(--accent); }
         .crav-dropdown { position:relative; }
-        .crav-dropdown-menu { position:absolute; right:0; top:calc(100% + 6px); background:var(--dash-card-bg); border:1px solid var(--border2); border-radius:12px; box-shadow:0 8px 28px rgba(0,0,0,0.18); z-index:100; min-width:180px; overflow:hidden; animation:ddopen 0.15s ease both; }
-        @keyframes ddopen { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
-        .crav-dropdown-item { display:flex; align-items:center; gap:0.5rem; padding:0.65rem 1rem; font:600 0.82rem 'DM Sans',sans-serif; color:var(--text); text-decoration:none; transition:background 0.14s; white-space:nowrap; }
-        .crav-dropdown-item:hover { background:rgba(232,82,42,0.08); color:var(--accent); }
+        .crav-dropdown-menu { position:absolute; right:0; bottom:calc(100% + 6px); background:var(--dash-card-bg); border:1px solid var(--border2); border-radius:14px; box-shadow:0 8px 28px rgba(0,0,0,0.22); z-index:100; min-width:210px; overflow:hidden; animation:ddopen 0.15s ease both; }
+        @keyframes ddopen { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+        .crav-dropdown-item { display:flex; align-items:center; gap:0.6rem; padding:0.65rem 1rem; font:500 0.83rem 'DM Sans',sans-serif; color:var(--text); text-decoration:none; transition:background 0.14s; white-space:nowrap; border-bottom:1px solid var(--border2); outline:none; }
+        .crav-dropdown-item:last-child { border-bottom:none; }
+        .crav-dropdown-item:hover, .crav-dropdown-item:focus { background:rgba(232,82,42,0.06); }
+        .crav-menu-icon { font-size:1rem; flex-shrink:0; }
+        .crav-menu-label { font-weight:600; }
       `}</style>
 
       <div className="crav-wrap">
@@ -338,12 +475,51 @@ export default function Cravings() {
                       <p className="crav-result-rest">{res.address}</p>
                       <div className="crav-result-tags">
                         {res.rating > 0 && (
-                          <span className="crav-result-tag stars">Star {res.rating.toFixed(1)}</span>
+                          <span className="crav-result-tag stars">⭐ {res.rating.toFixed(1)}</span>
                         )}
                         {res.distanceKm > 0 && (
                           <span className="crav-result-tag">{res.distanceKm.toFixed(1)} km</span>
                         )}
-                        {res.phone && <span className="crav-result-tag">{res.phone}</span>}
+                        {/* Google Maps tag */}
+                        <a
+                          href={res.googleMapsLink ?? res.orderLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="crav-result-tag maps-tag"
+                        >
+                          🗺️ Maps
+                        </a>
+                        {/* FoodPanda tag */}
+                        <a
+                          href={res.foodpandaLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="crav-result-tag fp-tag"
+                          title={res.foodpandaIsDirect ? 'Order on FoodPanda' : 'Search on FoodPanda'}
+                        >
+                          🟡 {res.foodpandaIsDirect ? 'FoodPanda' : 'FoodPanda?'}
+                        </a>
+                        {/* One clickable tag per phone number */}
+                        {(res.phones?.length ? res.phones : (res.phone ? [res.phone] : [])).map((phone) => (
+                          <a
+                            key={phone}
+                            href={`tel:${phone.replace(/[^0-9+]/g, '')}`}
+                            className="crav-result-tag phone-tag"
+                          >
+                            ☎️ {phone}
+                          </a>
+                        ))}
+                        {/* Website tag */}
+                        {res.website && (
+                          <a
+                            href={res.website}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="crav-result-tag website-tag"
+                          >
+                            🌐 Website
+                          </a>
+                        )}
                       </div>
                     </div>
                     <div className="crav-card-actions">
@@ -356,7 +532,6 @@ export default function Cravings() {
                             void removeFoodLink(savedEntry.id);
                             return;
                           }
-
                           const trimmedQuery = query.trim() || 'Local search';
                           void addFoodLink({
                             restaurant: res.name,
@@ -367,21 +542,19 @@ export default function Cravings() {
                             emoji: 'Map',
                             platform: 'Google Maps',
                             href: res.orderLink,
-                            phone: res.phone ?? undefined,
+                            phone: (res.phones?.[0] ?? res.phone) ?? undefined,
                           });
                         }}
                       >
                         {isSaved ? 'Saved' : '+ Save'}
                       </button>
-                      <CravingOrderDropdown
-                        orderLink={res.orderLink}
-                        phone={res.phone}
-                        restaurantName={res.name}
-                        onOrder={() => {
+                      <OrderMenu
+                        result={res}
+                        onAction={(label, href) => {
                           void logEvent({
                             userId: user?.uid ?? 'anonymous',
                             type: 'click_order',
-                            metadata: { restaurant: res.name, url: res.orderLink },
+                            metadata: { restaurant: res.name, action: label, url: href },
                           });
                         }}
                       />
