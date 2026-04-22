@@ -9,7 +9,17 @@ AI-powered meal planning for Pakistani users: fridge-first recipes (PKR budgets)
 | **Frontend** | Vite, React 19, TypeScript, React Router 7, Tailwind, Firebase Auth + Firestore |
 | **Backend** | Node.js, Express 5, Google Gemini (recipes, cravings parser, chat), Tavily (web search), Google Maps Places (Cravings) |
 
-The frontend talks to the API under `/api/*` (proxied to `http://localhost:5000` in development).
+The frontend talks to the API under `/api/*` (proxied to `http://localhost:5001` in development).
+
+## Core Features
+
+- **Smart Fridge-First AI Chef**: Instant primary recipe generation specifically optimized for Pakistani kitchens—respecting budget, ingredients on hand, and current cooking skill.
+- **Interactive Recipe Follower**: An active step-by-step cooking interface featuring a context-aware **AI Assistant widget** that automatically knows which step you are on to offer live technical help or localized ingredient substitutions.
+- **Zero-Config High Availability AI**: The central intelligence is powered by Google Gemini, equipped with an automatic, native fallback to the **Groq API** (`llama-3.3-70b-versatile`) that instantly catches and handles 503 bottlenecks, ensuring users always get a recipe.
+- **Single-Pass Online Enrichment**: Simultaneously searches the web via Tavily and extracts instructions, youtube videos, and macros directly into native application cards—eliminating extra round trips when following or saving external links.
+- **Cravings & Local Dining**: Powered by Google Maps Places, parses abstract cravings ("I want something spicy near DHA") to extract localized Pakistani restaurant options mapped by realistic PKR budgets, distances, and enriched with social and Foodpanda links. 
+- **Dynamic User Profiles**: Highly customizable diet/allergy restrictions and user macronutrient (calorie/protein) goals that transparently sync and act as a master context for all generated recommendations.
+- **Robust Cloud Sync**: Firebase Auth & Firestore architecture for seamless cross-device synchronization of user saved recipes.
 
 ## Prerequisites
 

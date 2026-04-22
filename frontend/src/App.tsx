@@ -16,6 +16,7 @@ import SavedRecipesPage from './pages/SavedRecipesPage';
 import FoodLinksPage from './pages/FoodLinksPage';
 import OnboardingPage from './pages/OnboardingPage';
 import MealPlannerPage from './pages/MealPlannerPage';
+import RecipeDetailPage from './pages/RecipeDetailPage';
 
 export default function App() {
   return (
@@ -42,6 +43,7 @@ export default function App() {
                   <Route path="/dietary" element={<Navigate to="/profile" replace />} />
                   <Route path="/saved" element={<SavedRecipesPage />} />
                   <Route path="/food-links" element={<FoodLinksPage />} />
+                  <Route path="/recipe/:recipeId" element={<RecipeDetailPage />} />
                 </Route>
               </Route>
             </Routes>

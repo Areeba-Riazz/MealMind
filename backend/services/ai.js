@@ -15,17 +15,23 @@ function systemInstructionContent(text) {
 /**
  * Helper: search the web for recipes via Tavily
  */
-async function searchRecipesOnline(ingredients, goal) {
+async function searchRecipesOnline(ingredients, goal, type = "web") {
   const tavilyKey = process.env.TAVILY_API_KEY;
   if (!tavilyKey) return [];
 
   try {
     const tavily = new TavilyClient({ apiKey: tavilyKey });
-    const query = `recipe using ${ingredients}${goal ? ` for ${goal}` : ""}`;
+    
+    // If type is youtube, we specifically look for videos.
+    // Otherwise, we search for standard recipe blogs.
+    let query = `best recipe for ${goal || 'a meal'} using ${ingredients}`;
+    if (type === "youtube") {
+      query = `recipe for ${goal || 'this meal'} using ${ingredients} site:youtube.com`;
+    }
 
     const response = await tavily.search(query, {
       search_depth: "basic",
-      max_results: 4,
+      max_results: type === "youtube" ? 3 : 5,
       include_answer: false,
     });
 
@@ -38,27 +44,120 @@ async function searchRecipesOnline(ingredients, goal) {
         snippet: r.content ? r.content.slice(0, 200).trim() + "…" : "",
       }));
   } catch (err) {
-    console.warn("Tavily search failed (non-fatal):", err.message);
+    console.warn(`Tavily ${type} search failed (non-fatal):`, err.message);
     return [];
   }
 }
 
 /**
- * Uses Gemini to extract structured search parameters from a free-text craving query.
+ * Fallback to Groq API using native fetch if Gemini fails.
  */
-async function parseQuery(query) {
+async function fallbackToGroq(messages, systemInstruction, isJson = false) {
+  const groqKey = process.env.GROQ_API_KEY;
+  if (!groqKey) {
+    throw new Error("GROQ_API_KEY is not set.");
+  }
+
+  const formattedMessages = [];
+  if (systemInstruction) {
+    formattedMessages.push({ role: "system", content: systemInstruction });
+  }
+
+  if (Array.isArray(messages)) {
+    // Chatbot format
+    for (const m of messages) {
+      formattedMessages.push({ 
+        role: m.role === "model" ? "assistant" : m.role, 
+        content: m.content || m.parts?.[0]?.text 
+      });
+    }
+  } else {
+    // String prompt
+    formattedMessages.push({ role: "user", content: messages });
+  }
+
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${groqKey}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: "llama-3.3-70b-versatile",
+      messages: formattedMessages,
+      temperature: 0.7,
+      response_format: isJson ? { type: "json_object" } : undefined
+    })
+  });
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Groq API error: ${err}`);
+  }
+
+  const data = await response.json();
+  return data.choices[0].message.content;
+}
+
+/**
+ * Unified AI generation function with Groq Fallback
+ * @param {string|Array} promptOrMessages A string prompt OR an array of messages for chat
+ * @param {object} options { systemInstruction: string, isJson: boolean }
+ */
+async function generateWithFallback(promptOrMessages, options = {}) {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error("Missing GEMINI_API_KEY in the backend .env");
   }
 
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+  try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const modelOptions = { model: "gemini-flash-latest" };
+    if (options.systemInstruction) {
+      modelOptions.systemInstruction = systemInstructionContent(options.systemInstruction);
+    }
+    const model = genAI.getGenerativeModel(modelOptions);
 
-  const prompt = `
+    let resultText = "";
+    if (Array.isArray(promptOrMessages)) {
+      // It's a chat sequence
+      const history = promptOrMessages.slice(0, -1).map(m => ({
+        role: m.role === "assistant" ? "model" : m.role,
+        parts: [{ text: m.content }]
+      }));
+      const chat = model.startChat({ history });
+      const lastMsg = promptOrMessages[promptOrMessages.length - 1];
+      const result = await chat.sendMessage(lastMsg.content);
+      resultText = result.response.text();
+    } else {
+      // It's a single prompt
+      const result = await model.generateContent(promptOrMessages);
+      resultText = result.response.text();
+    }
+
+    return resultText;
+  } catch (error) {
+    const errorStr = String(error.message || error).toLowerCase();
+    const isServiceDown = errorStr.includes("503") || error.status === 503 || errorStr.includes("fetch failed") || errorStr.includes("overloaded");
+    
+    if (isServiceDown && process.env.GROQ_API_KEY) {
+      console.warn("⚠️ Gemini failed or is overloaded. Falling back to Groq API...");
+      return await fallbackToGroq(promptOrMessages, options.systemInstruction, options.isJson);
+    }
+    // If not a 503 or no Groq key, re-throw
+    throw error;
+  }
+}
+
+/**
+ * Uses the fallback engine to extract structured search parameters from a query.
+ */
+async function parseQuery(query) {
+  const systemInstruction = `
     You are a query parser for a food search app.
     Extract structured fields from the user's craving query.
-
+  `;
+  const prompt = `
     Query: "${query}"
 
     Respond ONLY with valid JSON matching this schema (no Markdown, no extra text):
@@ -69,9 +168,7 @@ async function parseQuery(query) {
     }
   `;
 
-  const result = await model.generateContent(prompt);
-  let responseText = result.response.text();
-
+  let responseText = await generateWithFallback(prompt, { systemInstruction, isJson: true });
   responseText = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
 
   const parsed = JSON.parse(responseText);
@@ -148,10 +245,8 @@ Respond ONLY with a valid JSON array of ${restaurants.length} objects in the sam
 ]`;
 
   try {
-    const genAI = new GoogleGenerativeAI(geminiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
-    const result = await model.generateContent(prompt);
-    const text = result.response.text().replace(/```json/g, "").replace(/```/g, "").trim();
+    let text = await generateWithFallback(prompt, { isJson: true });
+    text = text.replace(/```json/g, "").replace(/```/g, "").trim();
     const parsed = JSON.parse(text);
 
     if (!Array.isArray(parsed)) return empty;
@@ -181,4 +276,5 @@ module.exports = {
   searchRecipesOnline,
   parseQuery,
   enrichAllRestaurantLinks,
+  generateWithFallback,
 };

@@ -34,6 +34,9 @@ function AiRecipeCard({ recipe, onRemove }: { recipe: SavedRecipe; onRemove: () 
           {nutrition && <MacroBadges nutrition={nutrition} compact />}
         </div>
         <div className="saved-card-actions">
+          <Link to={`/recipe/${recipe.id}`} className="saved-btn" style={{ background: 'var(--accent)', color: '#fff', borderColor: 'transparent' }}>
+            🚀 Follow
+          </Link>
           <button className="saved-btn" onClick={() => setExpanded(p => !p)}>
             {expanded ? 'Hide steps ▲' : 'View steps ▼'}
           </button>
@@ -92,6 +95,9 @@ function OnlineRecipeCard({ recipe, onRemove }: { recipe: SavedRecipe; onRemove:
           {recipe.snippet && <p className="saved-card-snippet">{recipe.snippet}</p>}
         </div>
         <div className="saved-card-actions">
+          <Link to={`/recipe/${recipe.id}`} className="saved-btn" style={{ background: 'var(--accent)', color: '#fff', borderColor: 'transparent' }}>
+            🚀 Follow
+          </Link>
           {recipe.url && (
             <a
               href={recipe.url}

@@ -1,7 +1,6 @@
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
-const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 // Utility and Service Imports
 const {
@@ -35,6 +34,7 @@ const {
   searchRecipesOnline,
   parseQuery,
   enrichAllRestaurantLinks,
+  generateWithFallback,
 } = require("./services/ai");
 
 const { searchPlaces } = require("./services/maps");
@@ -163,17 +163,22 @@ app.post("/api/recommend", async (req, res) => {
       return res.status(400).json({ error: "Ingredients are required to find a meal." });
     }
 
-    const webRecipes = await searchRecipesOnline(ingredients, goal);
+    const webRecipes = await searchRecipesOnline(ingredients, goal, "web");
+    const ytRecipes = await searchRecipesOnline(ingredients, goal, "youtube");
 
     const webContext = webRecipes.length > 0
       ? `Here are real recipes found on the internet that match the user's ingredients:\n` +
-        webRecipes.map((r, i) =>
-          `[${i + 1}] Title: "${r.title}"\n    URL: ${r.url}\n    Preview: ${r.snippet}`
-        ).join("\n\n")
-      : "No web search results were available for these ingredients.";
+      webRecipes.map((r, i) =>
+        `[WEB ${i + 1}] Title: "${r.title}"\n    URL: ${r.url}\n    Preview: ${r.snippet}`
+      ).join("\n\n")
+      : "No web search results were available.";
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+    const ytContext = ytRecipes.length > 0
+      ? `Here are relevant YouTube cooking videos for this meal type:\n` +
+      ytRecipes.map((r, i) =>
+        `[VIDEO ${i + 1}] Title: "${r.title}"\n    URL: ${r.url}`
+      ).join("\n\n")
+      : "";
 
     const prompt = `
 You are MealMind, an expert, cost-conscious culinary AI assistant.
@@ -184,31 +189,37 @@ The user needs a meal recommendation based on these constraints:
 - Dietary Goal/Mood: ${goal || "A tasty meal"}
 
 ${webContext}
+${ytContext}
 
 INSTRUCTIONS:
-1. Use the web search results above as primary references. If they are relevant, prefer recommending from them and include their URLs as references.
-2. Generate clear, practical step-by-step instructions for the chosen or created recipe.
-3. If the user's constraints are contradictory or impossible, suggest a simple realistic alternative.
-4. In the "references" field, include 2–4 source links. These MUST be real, working URLs — use the ones from the web search results above if relevant, or use well-known recipe sites (allrecipes.com, bbcgoodfood.com, seriouseats.com, etc.) that would logically have this recipe.
-5. Do NOT make up URLs. Only include URLs from the web search results provided above, or major well-known cookery websites.
-6. Estimate per-serving nutrition for ONE typical serving of the finished dish (numbers only, best-effort):
-   "nutrition": { "calories": <number>, "proteinG": <number>, "carbsG": <number>, "fatG": <number>, "fiberG": <optional number> }
+1. Provide a PRIMARY recommendation (recipeName) derived from the search results.
+2. Select the MOST RELEVANT YouTube video for this primary dish.
+3. For the [WEB] search results, select the TOP 2-3 most distinct recipes and enrich them.
+4. **CRITICAL**: For enriched web results, focus heavily on extracting EXACT recipe instructions and finding a matching YouTube URL from the [VIDEO] list if possible.
+5. You do NOT need to generate a precise ingredientsList for the web results (the app will use the user's input), but provide estimated nutrition and cooking time.
 
-Respond EXACTLY in valid JSON. Do NOT use Markdown code fences. Use this schema:
+Respond EXACTLY in valid JSON. Use this schema:
 {
-  "recipeName": "Name of the dish",
-  "instructions": ["Step 1", "Step 2", "Step 3"],
-  "isFallback": false,
+  "recipeName": "Primary recommended dish",
+  "ingredientsList": [ { "item": "...", "amount": "..." } ],
+  "instructions": ["Step 1", "Step 2", ...],
+  "cookingTime": "...",
+  "estimatedCost": "...",
+  "youtubeUrl": "...",
   "nutrition": { "calories": 0, "proteinG": 0, "carbsG": 0, "fatG": 0, "fiberG": 0 },
-  "references": [
-    { "title": "Source name", "url": "https://..." }
+  "enrichedOnlineResults": [
+    {
+      "title": "...", "url": "...", "snippet": "...",
+      "instructions": ["Step 1", "Step 2", ...],
+      "youtubeUrl": "URL from [VIDEO] list if it matches this specific dish",
+      "nutrition": { "calories": 0, "proteinG": 0, "carbsG": 0, "fatG": 0, "fiberG": 0 },
+      "cookingTime": "...", "estimatedCost": "..."
+    }
   ]
 }
     `;
 
-    const result = await model.generateContent(prompt);
-    let responseText = result.response.text();
-
+    let responseText = await generateWithFallback(prompt, { isJson: true });
     responseText = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
     const jsonResponse = JSON.parse(responseText);
 
@@ -216,13 +227,14 @@ Respond EXACTLY in valid JSON. Do NOT use Markdown code fences. Use this schema:
       jsonResponse.nutrition = normalizeNutrition(jsonResponse.nutrition);
     }
 
+    // Attach results for the "Found Online" UI section
     jsonResponse.foundOnline = webRecipes;
 
     return res.status(200).json(jsonResponse);
 
   } catch (error) {
     console.error("Backend AI Error:", error);
-    const errorMessage = error.message || "Unknown error occurred while connecting to Gemini.";
+    const errorMessage = error.message || "Unknown error occurred while connecting to the AI.";
     return res.status(500).json({ error: `Failed to connect to the AI Chef: ${errorMessage}` });
   }
 });
@@ -248,14 +260,14 @@ app.post("/api/chat", async (req, res) => {
     if (userPreferences) {
       const p = userPreferences;
       const lines = [];
-      if (p.cuisines?.length)   lines.push(`- Favourite cuisines: ${p.cuisines.join(", ")}`);
-      if (p.spice)              lines.push(`- Spice level: ${p.spice}`);
-      if (p.budget)             lines.push(`- Default budget: ${p.budget}`);
-      if (p.skill)              lines.push(`- Cooking skill: ${p.skill}`);
-      if (p.goal)               lines.push(`- Health goal: ${p.goal}`);
-      if (p.allergens?.length)  lines.push(`- Allergies/intolerances: ${p.allergens.join(", ")}`);
-      if (p.diets?.length)      lines.push(`- Dietary restrictions: ${p.diets.join(", ")}`);
-      if (p.customPreferences)  lines.push(`- Additional preferences: ${p.customPreferences}`);
+      if (p.cuisines?.length) lines.push(`- Favourite cuisines: ${p.cuisines.join(", ")}`);
+      if (p.spice) lines.push(`- Spice level: ${p.spice}`);
+      if (p.budget) lines.push(`- Default budget: ${p.budget}`);
+      if (p.skill) lines.push(`- Cooking skill: ${p.skill}`);
+      if (p.goal) lines.push(`- Health goal: ${p.goal}`);
+      if (p.allergens?.length) lines.push(`- Allergies/intolerances: ${p.allergens.join(", ")}`);
+      if (p.diets?.length) lines.push(`- Dietary restrictions: ${p.diets.join(", ")}`);
+      if (p.customPreferences) lines.push(`- Additional preferences: ${p.customPreferences}`);
       if (lines.length) {
         prefContext = `\n\nUSER PROFILE (use this as context for all suggestions):\n${lines.join("\n")}`;
       }
@@ -281,25 +293,7 @@ IMPORTANT RULES:
 - Be concise — 2-4 short paragraphs max unless listing steps or ingredients
 - Use emojis naturally but sparingly${prefContext}`;
 
-    const model = genAI.getGenerativeModel({
-      model: "gemini-flash-latest",
-      systemInstruction: systemInstructionContent(systemPrompt),
-    });
-
-    const chat = model.startChat({
-      history: messages.slice(0, -1).map((m) => ({
-        role: m.role === "assistant" ? "model" : "user",
-        parts: [{ text: m.content }],
-      })),
-    });
-
-    const lastMessage = messages[messages.length - 1];
-    if (!lastMessage || typeof lastMessage.content !== "string") {
-      return res.status(400).json({ error: "Each message must include text content." });
-    }
-
-    const result = await chat.sendMessage(lastMessage.content.trim());
-    const responseText = result.response.text();
+    const responseText = await generateWithFallback(messages, { systemInstruction: systemPrompt });
 
     return res.status(200).json({ reply: responseText });
 
@@ -309,7 +303,39 @@ IMPORTANT RULES:
   }
 });
 
-const PORT = 5000;
+// ─────────────────────────────────────────────────────────
+// POST /api/recipe/clarify — Clarify steps/ingredients
+// ─────────────────────────────────────────────────────────
+app.post("/api/recipe/clarify", async (req, res) => {
+  try {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) return res.status(500).json({ error: "Missing GEMINI_API_KEY" });
+
+    const { recipeName, selectedItem, question, contextInstructions, contextIngredients } = req.body;
+    if (!selectedItem || !question) {
+      return res.status(400).json({ error: "Item and question are required." });
+    }
+
+    const systemPrompt = `You are MealMind's Recipe Assistant. 
+You help users with specific questions about a recipe they are currently following.
+Recipe: "${recipeName}"
+Ingredients in this recipe: ${JSON.stringify(contextIngredients || [])}
+Full Instructions: ${JSON.stringify(contextInstructions || [])}
+
+The user is asking about this specific item: "${selectedItem}"
+User Question: "${question}"
+
+Provide a concise, helpful, and friendly response. If they ask for substitutions, suggest common items available in a Pakistani kitchen. If they ask for technique, explain it simply. Keep it short (1-2 paragraphs).`;
+
+    const responseText = await generateWithFallback(systemPrompt);
+    return res.status(200).json({ reply: responseText });
+  } catch (error) {
+    console.error("Clarification Error:", error);
+    return res.status(500).json({ error: "Failed to get clarification from the AI Chef." });
+  }
+});
+
+const PORT = 5001;
 const server = app.listen(PORT, () => {
   console.log(`✅ MealMind Backend running perfectly on http://localhost:${PORT}`);
 });

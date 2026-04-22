@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { FormEvent } from 'react';
 import { useSavedRecipes } from '../context/SavedRecipesContext';
 import { useAuth } from '../context/AuthContext';
@@ -18,6 +19,12 @@ interface OnlineRecipe {
   title: string;
   url: string;
   snippet: string;
+  nutrition?: RecipeNutrition;
+  cookingTime?: string;
+  estimatedCost?: string;
+  ingredientsList?: { item: string; amount: string }[];
+  instructions?: string[];
+  youtubeUrl?: string;
 }
 
 interface Reference {
@@ -28,8 +35,13 @@ interface Reference {
 interface Recommendation {
   recipeName: string;
   instructions: string[];
+  ingredientsList?: { item: string; amount: string }[];
+  cookingTime?: string;
+  estimatedCost?: string;
+  youtubeUrl?: string;
   isFallback?: boolean;
   foundOnline?: OnlineRecipe[];
+  enrichedOnlineResults?: (OnlineRecipe & { ingredientsList: any[]; instructions: string[] })[];
   references?: Reference[];
   nutrition?: RecipeNutrition;
 }
@@ -66,12 +78,24 @@ export default function DemoPage() {
     try {
       const apiBase = import.meta.env.VITE_API_URL ?? '';
       const res = await fetch(`${apiBase}/api/recommend`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ingredients, budget, time, goal }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ingredients, budget, time, goal })
       });
-      const data: Recommendation & { error?: string; nutrition?: unknown } = await res.json();
-      if (!res.ok) throw new Error(data.error ?? 'Failed to fetch recommendation');
+      
+      let data: Recommendation & { error?: string; nutrition?: unknown } = {} as any;
+      
+      if (!res.ok) {
+        let errorMsg = 'Failed to fetch recommendation';
+        try {
+          data = await res.json();
+          errorMsg = data.error ?? errorMsg;
+        } catch {
+          errorMsg = 'AI connection timed out or the server proxy reset (ECONNRESET). Please try again.';
+        }
+        throw new Error(errorMsg);
+      } else {
+        data = await res.json();
+      }
       if (!data.recipeName || !data.instructions) throw new Error('Invalid response format.');
       const nutrition = parseNutrition(data.nutrition);
       setRecommendation(nutrition ? { ...data, nutrition } : { ...data, nutrition: undefined });
@@ -106,9 +130,8 @@ export default function DemoPage() {
 
   // Save the AI-generated recipe
   const handleSaveAi = () => {
-    if (!recommendation) return;
+    if (!recommendation || !user) return;
     if (isSaved(recommendation.recipeName)) {
-      // unsave
       const match = saved.find(r => r.title.toLowerCase() === recommendation.recipeName.toLowerCase());
       if (match) removeRecipe(match.id);
     } else {
@@ -116,6 +139,10 @@ export default function DemoPage() {
         type: 'ai',
         title: recommendation.recipeName,
         instructions: recommendation.instructions,
+        ingredientsList: recommendation.ingredientsList,
+        youtubeUrl: recommendation.youtubeUrl,
+        cookingTime: recommendation.cookingTime,
+        estimatedCost: recommendation.estimatedCost,
         isFallback: recommendation.isFallback,
         references: recommendation.references,
         ...(recommendation.nutrition ? { nutrition: recommendation.nutrition } : {}),
@@ -124,29 +151,74 @@ export default function DemoPage() {
       setTimeout(() => setAiSaveFlash(false), 1800);
 
       void logEvent({
-        userId: user?.uid ?? 'anonymous',
+        userId: user.uid,
         type: 'save_recipe',
         metadata: { title: recommendation.recipeName, source: 'ai' }
       });
     }
   };
 
-  // Save / unsave an online recipe card
+  // Transform user's raw input list into structured ingredients
+  const parseInputIngredients = () => {
+    return ingredients.split(',').map(s => {
+      const trimmed = s.trim();
+      return { item: trimmed, amount: 'As needed' };
+    }).filter(i => i.item.length > 0);
+  };
+
   const handleSaveOnline = (r: OnlineRecipe) => {
+    if (!user) return;
     if (isSaved(r.title, r.url)) {
       const match = saved.find(s => s.url === r.url);
       if (match) removeRecipe(match.id);
     } else {
       let domain = '';
       try { domain = new URL(r.url).hostname.replace('www.', ''); } catch { }
-      saveRecipe({ type: 'online', title: r.title, url: r.url, snippet: r.snippet, domain });
+      
+      // Find enrichment data if available
+      const enriched = recommendation?.enrichedOnlineResults?.find(e => e.url === r.url);
+      const userIngredients = parseInputIngredients();
+
+      saveRecipe({ 
+        type: 'online', 
+        title: r.title, 
+        url: r.url, 
+        snippet: r.snippet, 
+        domain,
+        nutrition: enriched?.nutrition || r.nutrition,
+        cookingTime: enriched?.cookingTime || r.cookingTime,
+        estimatedCost: enriched?.estimatedCost || r.estimatedCost,
+        ingredientsList: enriched?.ingredientsList || userIngredients,
+        instructions: enriched?.instructions,
+        youtubeUrl: enriched?.youtubeUrl,
+      });
 
       void logEvent({
-        userId: user?.uid ?? 'anonymous',
+        userId: user.uid,
         type: 'save_recipe',
         metadata: { title: r.title, source: 'online' }
       });
     }
+  };
+
+  // Navigate to interactive follower
+  const navigate = useNavigate();
+  const handleFollow = (recipe: Recommendation | OnlineRecipe) => {
+    let payload = { ...recipe };
+    
+    // Inject user ingredients if it's an online recipe
+    if ('url' in recipe) {
+      const enriched = recommendation?.enrichedOnlineResults?.find(e => e.url === recipe.url);
+      const userIngredients = parseInputIngredients();
+      
+      payload = enriched ? { ...enriched } : { ...recipe };
+      if (!payload.ingredientsList || payload.ingredientsList.length === 0) {
+        payload.ingredientsList = userIngredients;
+      }
+    }
+
+    localStorage.setItem('mealmind_active_recipe', JSON.stringify(payload));
+    navigate('/recipe/active'); 
   };
 
   return (
@@ -238,6 +310,14 @@ export default function DemoPage() {
         .demo-again-btn { flex:1; min-width:160px; padding:0.9rem; border-radius:100px; border:1px solid var(--border2); background:transparent; color:var(--text); font:700 0.92rem 'DM Sans',sans-serif; cursor:pointer; transition:all 0.18s; }
         .demo-again-btn:hover { border-color:var(--accent); background:rgba(232,82,42,0.08); color:var(--accent); }
 
+        /* Follow Button */
+        .demo-follow-btn { display:inline-flex; align-items:center; gap:0.4rem; padding:0.5rem 1.2rem; border-radius:100px; border:none; background:var(--accent); color:#fff; font:700 0.8rem 'DM Sans',sans-serif; cursor:pointer; transition:all 0.2s; box-shadow:0 4px 12px rgba(232,82,42,0.25); }
+        .demo-follow-btn:hover { transform:translateY(-2px); box-shadow:0 6px 18px rgba(232,82,42,0.35); }
+
+        /* Badges */
+        .demo-meta-badges { display:flex; gap:0.5rem; margin-bottom:1rem; flex-wrap:wrap; }
+        .demo-meta-badge { display:inline-flex; align-items:center; gap:0.3rem; padding:0.3rem 0.7rem; border-radius:100px; background:rgba(255,255,255,0.05); border:1px solid var(--border); font:600 0.7rem 'DM Sans',sans-serif; color:var(--muted); }
+
         /* Error */
         .demo-error { text-align:center; padding:2.5rem 1.5rem; background:var(--dash-card-bg); border:1px solid rgba(255,80,80,0.18); border-radius:22px; }
         .demo-error h3 { font-family:'Syne',sans-serif; font-size:1.3rem; font-weight:800; color:#ff8a8a; margin:0 0 0.5rem; }
@@ -309,13 +389,23 @@ export default function DemoPage() {
             {/* ── Recipe title + save button ── */}
             <div className="demo-recipe-header">
               <h2 className="demo-recipe-title">{recommendation.recipeName}</h2>
-              <button
-                id="save-ai-recipe-btn"
-                className={`demo-save-btn${isSaved(recommendation.recipeName) ? ' saved' : ''}${aiSaveFlash ? ' flash' : ''}`}
-                onClick={handleSaveAi}
-              >
-                {isSaved(recommendation.recipeName) ? '✓ Saved' : '🔖 Save Recipe'}
-              </button>
+              <div style={{ display: 'flex', gap: '0.6rem' }}>
+                <button className="demo-follow-btn" onClick={() => handleFollow(recommendation)}>🚀 Follow</button>
+                {user && (
+                  <button
+                    id="save-ai-recipe-btn"
+                    className={`demo-save-btn${isSaved(recommendation.recipeName) ? ' saved' : ''}${aiSaveFlash ? ' flash' : ''}`}
+                    onClick={handleSaveAi}
+                  >
+                    {isSaved(recommendation.recipeName) ? '✓ Saved' : '🔖 Save Recipe'}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="demo-meta-badges">
+              {recommendation.cookingTime && <span className="demo-meta-badge">🕒 {recommendation.cookingTime}</span>}
+              {recommendation.estimatedCost && <span className="demo-meta-badge">💸 {recommendation.estimatedCost}</span>}
             </div>
 
             {recommendation.nutrition && (
@@ -344,14 +434,25 @@ export default function DemoPage() {
                             <p className="demo-online-title">{r.title}</p>
                           </a>
                           {r.snippet && <p className="demo-online-snippet">{r.snippet}</p>}
+                          
+                          <div className="demo-meta-badges" style={{ marginTop: '0.6rem', marginBottom: '0.4rem' }}>
+                            {r.cookingTime && <span className="demo-meta-badge" style={{ fontSize: '0.65rem' }}>🕒 {r.cookingTime}</span>}
+                            {r.estimatedCost && <span className="demo-meta-badge" style={{ fontSize: '0.65rem' }}>💸 {r.estimatedCost}</span>}
+                          </div>
+
                           <div className="demo-online-actions">
                             {domain && <span className="demo-online-domain">↗ {domain}</span>}
-                            <button
-                              className={`demo-online-save-btn${alreadySaved ? ' saved' : ''}`}
-                              onClick={() => handleSaveOnline(r)}
-                            >
-                              {alreadySaved ? '✓ Saved' : '🔖 Save'}
+                            <button className="demo-follow-btn" style={{ padding: '0.35rem 0.8rem', fontSize: '0.7rem' }} onClick={() => handleFollow(r)}>
+                              🚀 Follow
                             </button>
+                            {user && (
+                              <button
+                                className={`demo-online-save-btn${alreadySaved ? ' saved' : ''}`}
+                                onClick={() => handleSaveOnline(r)}
+                              >
+                                {alreadySaved ? '✓ Saved' : '🔖 Save'}
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -361,8 +462,23 @@ export default function DemoPage() {
               </div>
             )}
 
+            {/* ── Ingredients List (AI Generated) ── */}
+            {recommendation.ingredientsList && (
+              <div style={{ marginBottom: '1.8rem' }}>
+                <p className="demo-section-label">🛒 Ingredients needed</p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.8rem' }}>
+                  {recommendation.ingredientsList.map((ing, i) => (
+                    <div key={i} style={{ padding: '0.8rem 1rem', background: 'var(--glass-overlay)', border: '1px solid var(--border2)', borderRadius: '12px', fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontWeight: 600, color: 'var(--text)' }}>{ing.item}</span>
+                      <span style={{ color: 'var(--muted)' }}>{ing.amount}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* ── AI Generated Steps ── */}
-            <p className="demo-steps-label">Step-by-step instructions</p>
+            <p className="demo-section-label">👨‍🍳 AI generated instructions</p>
             <ol className="demo-steps">
               {recommendation.instructions.map((step, i) => (
                 <li key={i} className="demo-step">
@@ -371,6 +487,7 @@ export default function DemoPage() {
                 </li>
               ))}
             </ol>
+
 
             {/* ── References ── */}
             {recommendation.references && recommendation.references.length > 0 && (

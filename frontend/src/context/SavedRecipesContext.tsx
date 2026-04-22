@@ -19,6 +19,10 @@ export interface SavedRecipe {
   title: string;
   savedAt: string; // ISO string
   instructions?: string[];
+  ingredientsList?: { item: string; amount: string }[];
+  youtubeUrl?: string;
+  cookingTime?: string;
+  estimatedCost?: string;
   isFallback?: boolean;
   references?: { title: string; url: string }[];
   /** Per-serving estimates from AI Chef; persisted in Firestore for AI saves */
