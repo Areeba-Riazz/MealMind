@@ -13,13 +13,13 @@ The frontend talks to the API under `/api/*` (proxied to `http://localhost:5001`
 
 ## Core Features
 
-- **Smart Fridge-First AI Chef**: Instant primary recipe generation specifically optimized for Pakistani kitchens—respecting budget, ingredients on hand, and current cooking skill.
-- **Interactive Recipe Follower**: An active step-by-step cooking interface featuring a context-aware **AI Assistant widget** that automatically knows which step you are on to offer live technical help or localized ingredient substitutions.
-- **Zero-Config High Availability AI**: The central intelligence is powered by Google Gemini, equipped with an automatic, native fallback to the **Groq API** (`llama-3.3-70b-versatile`) that instantly catches and handles 503 bottlenecks, ensuring users always get a recipe.
-- **Single-Pass Online Enrichment**: Simultaneously searches the web via Tavily and extracts instructions, youtube videos, and macros directly into native application cards—eliminating extra round trips when following or saving external links.
-- **Cravings & Local Dining**: Powered by Google Maps Places, parses abstract cravings ("I want something spicy near DHA") to extract localized Pakistani restaurant options mapped by realistic PKR budgets, distances, and enriched with social and Foodpanda links. 
-- **Dynamic User Profiles**: Highly customizable diet/allergy restrictions and user macronutrient (calorie/protein) goals that transparently sync and act as a master context for all generated recommendations.
-- **Robust Cloud Sync**: Firebase Auth & Firestore architecture for seamless cross-device synchronization of user saved recipes.
+- **Fridge-First AI Chef & Planner**: Instantly generates recipes optimized for Pakistani kitchens using ingredients you already have. Natively supports full meal planning tailored to specific PKR budgets and macronutrient/dietary goals.
+- **Globally Accessible, Context-Aware AI Chat**: A theme-aware culinary assistant available anywhere in the app via a floating button. It acts as a master context, automatically reading your dynamic profile (favourite cuisines, budget, skill, allergens) so it never suggests food that violates your restrictions.
+- **Interactive Recipe Follower & Clarification**: An active step-by-step cooking interface where the AI Assistant tracks your progress to offer live technical help, technique explanations, or localized ingredient substitutions.
+- **Cravings & Local Dining Intelligence**: Not in the mood to cook? The AI recommends dishes to order. Powered by Google Maps Places, it parses abstract cravings (e.g., "spicy food near DHA") into localized restaurant options, mapped to realistic budgets and enriched with Foodpanda links.
+- **Single-Pass Online Enrichment**: Simultaneously searches the web (via Tavily) to extract instructions, YouTube videos, and macros directly into native application cards—eliminating extra round trips when following or saving external links.
+- **Zero-Config High Availability AI**: Central intelligence powered by Google Gemini with an automatic, native fallback to the **Groq API** (`llama-3.3-70b-versatile`) that instantly catches and handles 503 bottlenecks, ensuring you always get an answer.
+- **Robust Cloud Sync**: Firebase Auth & Firestore architecture provides seamless, cross-device synchronization of your saved recipes and dynamic preferences.
 
 ## Prerequisites
 

@@ -17,6 +17,7 @@ import FoodLinksPage from './pages/FoodLinksPage';
 import OnboardingPage from './pages/OnboardingPage';
 import MealPlannerPage from './pages/MealPlannerPage';
 import RecipeDetailPage from './pages/RecipeDetailPage';
+import DailyRecommendationsPage from './pages/DailyRecommendationsPage';
 
 export default function App() {
   return (
@@ -44,6 +45,7 @@ export default function App() {
                   <Route path="/saved" element={<SavedRecipesPage />} />
                   <Route path="/food-links" element={<FoodLinksPage />} />
                   <Route path="/recipe/:recipeId" element={<RecipeDetailPage />} />
+                  <Route path="/daily-recommendations" element={<DailyRecommendationsPage />} />
                 </Route>
               </Route>
             </Routes>

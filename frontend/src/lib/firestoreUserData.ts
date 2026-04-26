@@ -450,3 +450,51 @@ export async function saveMealPlannerDocument(uid: string, docData: MealPlannerD
   if (!db) throw new Error('Firestore is not configured');
   await setDoc(doc(db, 'users', uid, 'mealPlanner', 'default'), docData, { merge: true });
 }
+
+// ─── Daily Recommendations: users/{uid}/dailyRecommendations/{dateStr} ───
+
+export interface DailyRecommendationDoc {
+  id: string; // YYYY-MM-DD
+  recipe: {
+    title: string;
+    description: string;
+    ingredients: string[];
+    instructions: string[];
+    youtubeUrl?: string;
+    nutrition?: { calories: number; proteinG: number; carbsG: number; fatG: number; fiberG: number };
+    rating: 'up' | 'down' | null;
+  };
+  order: {
+    title: string;
+    description: string;
+    estimatedCost: string;
+    rating: 'up' | 'down' | null;
+  };
+}
+
+export async function getDailyRecommendations(uid: string, dateStr: string): Promise<DailyRecommendationDoc | null> {
+  if (!db) return null;
+  const snap = await getDoc(doc(db, 'users', uid, 'dailyRecommendations', dateStr));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...snap.data() } as DailyRecommendationDoc;
+}
+
+export async function saveDailyRecommendations(uid: string, dateStr: string, data: Omit<DailyRecommendationDoc, 'id'>): Promise<void> {
+  if (!db) throw new Error('Firestore is not configured');
+  // @ts-ignore - stripUndefinedDeep is not strongly typed but works for this
+  await setDoc(doc(db, 'users', uid, 'dailyRecommendations', dateStr), stripUndefinedDeep(data));
+}
+
+export async function updateRecommendationRating(
+  uid: string, 
+  dateStr: string, 
+  type: 'recipe' | 'order', 
+  rating: 'up' | 'down' | null
+): Promise<void> {
+  if (!db) throw new Error('Firestore is not configured');
+  await setDoc(
+    doc(db, 'users', uid, 'dailyRecommendations', dateStr), 
+    { [type]: { rating } }, 
+    { merge: true }
+  );
+}
