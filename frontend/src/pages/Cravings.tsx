@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent } from 'react';
 import CravingsMap from '../components/CravingsMap';
-import LocationPickerModal from '../components/LocationPickerModal';
 import SkeletonCard from '../components/SkeletonCard';
 import { useAuth } from '../context/AuthContext';
 import { useFoodLinks } from '../context/FoodLinksContext';
@@ -19,18 +18,14 @@ interface CravingResult {
   rating: number;
   lat: number | null;
   lng: number | null;
-  // Ordering links
-  orderLink: string;           // kept for FoodLinks save-link compat (= googleMapsLink)
+  orderLink: string;
   googleMapsLink: string;
-  foodpandaLink: string;       // direct listing if foodpandaIsDirect, else search fallback
-  foodpandaIsDirect: boolean;  // true = confirmed direct listing, false = search fallback
-  // Social links (null if not found)
+  foodpandaLink: string;
+  foodpandaIsDirect: boolean;
   instagramUrl: string | null;
   facebookUrl: string | null;
-  // Contact
   phones: string[];
-  phone: string | null;        // legacy
-  // Website (sanitised by backend)
+  phone: string | null;
   website: string | null;
 }
 
@@ -48,6 +43,14 @@ const QUICK = [
   'Sushi: I want a freshly made sushi platter',
 ];
 
+// Radius steps in metres that the slider snaps to
+const RADIUS_STEPS = [500, 1000, 2000, 3000, 5000, 8000, 10000, 15000, 20000, 30000, 50000];
+
+function radiusLabel(metres: number): string {
+  if (metres < 1000) return `${metres} m`;
+  return `${(metres / 1000).toFixed(metres % 1000 === 0 ? 0 : 1)} km`;
+}
+
 // ─── OrderMenu ────────────────────────────────────────────────────────────────
 
 interface OrderMenuItem {
@@ -62,7 +65,6 @@ interface OrderMenuItem {
 function buildMenuItems(result: CravingResult): OrderMenuItem[] {
   const items: OrderMenuItem[] = [];
 
-  // FoodPanda — label differs based on whether it's a direct listing or search fallback
   items.push({
     key: 'foodpanda',
     icon: '🟡',
@@ -101,7 +103,6 @@ function buildMenuItems(result: CravingResult): OrderMenuItem[] {
     });
   }
 
-  // One entry per phone number
   const phones = result.phones?.length ? result.phones : (result.phone ? [result.phone] : []);
   phones.forEach((phone, i) => {
     const digits = phone.replace(/[^0-9+]/g, '');
@@ -140,7 +141,6 @@ function OrderMenu({
   const items = buildMenuItems(result);
   const hasItems = items.length > 0;
 
-  // Close on outside click
   useEffect(() => {
     if (!open) return;
     function onMouseDown(e: MouseEvent) {
@@ -153,7 +153,6 @@ function OrderMenu({
     return () => document.removeEventListener('mousedown', onMouseDown);
   }, [open]);
 
-  // Focus management when menu opens
   useEffect(() => {
     if (open && focusedIndex >= 0) {
       itemRefs.current[focusedIndex]?.focus();
@@ -227,7 +226,7 @@ function OrderMenu({
               className="crav-dropdown-item"
               role="menuitem"
               tabIndex={open ? 0 : -1}
-              style={item.color ? { '--item-color': item.color } as React.CSSProperties : undefined}
+              style={item.color ? ({ '--item-color': item.color } as CSSProperties) : undefined}
               onClick={() => {
                 setOpen(false);
                 setFocusedIndex(-1);
@@ -254,6 +253,11 @@ export default function Cravings() {
   const [emptyMessage, setEmptyMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Radius slider — default index 4 = 5000 m, collapsed by default
+  const [radiusIndex, setRadiusIndex] = useState(4);
+  const [radiusOpen, setRadiusOpen] = useState(false);
+  const radiusMeters = RADIUS_STEPS[radiusIndex];
+
   const { user } = useAuth();
   const geo = useGeolocation();
   const loc = useLocationDisplay(user?.uid);
@@ -270,7 +274,6 @@ export default function Cravings() {
       const body: Record<string, unknown> = { query };
 
       if (loc.overrideArea) {
-        // If override has coords, use them for better accuracy
         if (loc.overrideLat != null && loc.overrideLng != null) {
           body.lat = loc.overrideLat;
           body.lng = loc.overrideLng;
@@ -283,6 +286,9 @@ export default function Cravings() {
       } else if (area.trim()) {
         body.area = area.trim();
       }
+
+      // Always send radius so backend can use it
+      body.radiusMeters = radiusMeters;
 
       const res = await fetch('/api/cravings', {
         method: 'POST',
@@ -312,6 +318,7 @@ export default function Cravings() {
         type: 'search_craving',
         metadata: {
           query,
+          radiusMeters,
           location: loc.overrideArea ? 'override' : (geo.lat != null && geo.lng != null ? 'browser' : 'manual'),
         },
       });
@@ -326,6 +333,9 @@ export default function Cravings() {
   const geoReady = !geo.loading;
   const needsArea = geoReady && !hasCoords && !loc.overrideArea;
   const canSubmit = !loading && (geoReady || loc.overrideArea != null) && query.trim() !== '';
+
+  // Only show radius slider when location coords are actually known
+  const showRadiusSlider = hasCoords || loc.overrideLat != null;
 
   return (
     <>
@@ -342,6 +352,20 @@ export default function Cravings() {
         .craving-input { width:100%; background:var(--input-bg); border:1px solid var(--border2); border-radius:14px; padding:1rem 1.15rem; color:var(--text); font:0.95rem 'DM Sans',sans-serif; outline:none; transition:border-color 0.2s; }
         .craving-input::placeholder { color:var(--muted2); }
         .craving-input:focus { border-color:var(--accent); }
+
+        /* ── Radius collapsible ── */
+        .crav-radius-wrap { margin-bottom:1rem; border:1px solid var(--border2); border-radius:12px; overflow:hidden; }
+        .crav-radius-toggle { width:100%; display:flex; align-items:center; justify-content:space-between; padding:0.6rem 0.9rem; background:var(--input-bg); border:none; cursor:pointer; font-family:'DM Sans',sans-serif; font-size:0.78rem; font-weight:600; color:var(--muted); transition:background 0.15s; }
+        .crav-radius-toggle:hover { background:rgba(232,82,42,0.05); color:var(--accent); }
+        .crav-radius-value { font-size:0.78rem; font-weight:700; color:var(--accent); background:rgba(232,82,42,0.1); border:1px solid rgba(232,82,42,0.2); border-radius:100px; padding:0.12rem 0.6rem; }
+        .crav-radius-body { padding:0.8rem 0.9rem 0.65rem; background:var(--input-bg); border-top:1px solid var(--border2); }
+        .crav-radius-slider { -webkit-appearance:none; appearance:none; width:100%; height:5px; border-radius:100px; outline:none; cursor:pointer; background: linear-gradient(to right, var(--accent) 0%, var(--accent) calc(var(--pct) * 100%), var(--border2) calc(var(--pct) * 100%), var(--border2) 100%); }
+        .crav-radius-slider::-webkit-slider-thumb { -webkit-appearance:none; appearance:none; width:18px; height:18px; border-radius:50%; background:var(--accent); border:2px solid #fff; box-shadow:0 2px 6px rgba(232,82,42,0.4); cursor:pointer; transition:transform 0.15s; }
+        .crav-radius-slider::-webkit-slider-thumb:hover { transform:scale(1.15); }
+        .crav-radius-slider::-moz-range-thumb { width:18px; height:18px; border-radius:50%; background:var(--accent); border:2px solid #fff; box-shadow:0 2px 6px rgba(232,82,42,0.4); cursor:pointer; }
+        .crav-radius-ticks { display:flex; justify-content:space-between; margin-top:0.35rem; }
+        .crav-radius-tick { font-size:0.62rem; color:var(--muted2); }
+
         .btn-hunt { width:100%; background:var(--accent); color:rgba(255,255,255,0.95); border:none; border-radius:100px; padding:0.9rem; font:700 0.95rem 'DM Sans',sans-serif; cursor:pointer; box-shadow:0 4px 12px rgba(232,82,42,0.25); transition:all 0.2s; }
         .btn-hunt:disabled { opacity:0.5; cursor:not-allowed; }
         .craving-error { background:rgba(255,80,80,0.08); border:1px solid rgba(255,80,80,0.15); border-radius:12px; padding:0.8rem 1rem; color:#ff8a8a; font-size:0.85rem; margin-bottom:1.5rem; }
@@ -430,6 +454,44 @@ export default function Cravings() {
               </div>
             )}
 
+            {/* ── Radius / Distance Limit — collapsible ── */}
+            {showRadiusSlider && (
+              <div className="crav-radius-wrap">
+                <button
+                  type="button"
+                  className="crav-radius-toggle"
+                  onClick={() => setRadiusOpen((v) => !v)}
+                >
+                  <span>📍 Search radius</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <span className="crav-radius-value">{radiusLabel(radiusMeters)}</span>
+                    <span style={{ fontSize: '0.65rem', opacity: 0.5 }}>{radiusOpen ? '▲' : '▼'}</span>
+                  </span>
+                </button>
+                {radiusOpen && (
+                  <div className="crav-radius-body">
+                    <input
+                      type="range"
+                      className="crav-radius-slider"
+                      min={0}
+                      max={RADIUS_STEPS.length - 1}
+                      step={1}
+                      value={radiusIndex}
+                      style={{ '--pct': radiusIndex / (RADIUS_STEPS.length - 1) } as CSSProperties}
+                      onChange={(e) => setRadiusIndex(Number(e.target.value))}
+                      aria-label="Search radius"
+                    />
+                    <div className="crav-radius-ticks">
+                      <span className="crav-radius-tick">500 m</span>
+                      <span className="crav-radius-tick">5 km</span>
+                      <span className="crav-radius-tick">20 km</span>
+                      <span className="crav-radius-tick">50 km</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <button className="btn-hunt" type="submit" disabled={!canSubmit}>
               {loading ? 'Scanning local restaurants...' : 'Find My Craving'}
             </button>
@@ -480,7 +542,6 @@ export default function Cravings() {
                         {res.distanceKm > 0 && (
                           <span className="crav-result-tag">{res.distanceKm.toFixed(1)} km</span>
                         )}
-                        {/* Google Maps tag */}
                         <a
                           href={res.googleMapsLink ?? res.orderLink}
                           target="_blank"
@@ -489,7 +550,6 @@ export default function Cravings() {
                         >
                           🗺️ Maps
                         </a>
-                        {/* FoodPanda tag */}
                         <a
                           href={res.foodpandaLink}
                           target="_blank"
@@ -499,7 +559,6 @@ export default function Cravings() {
                         >
                           🟡 {res.foodpandaIsDirect ? 'FoodPanda' : 'FoodPanda?'}
                         </a>
-                        {/* One clickable tag per phone number */}
                         {(res.phones?.length ? res.phones : (res.phone ? [res.phone] : [])).map((phone) => (
                           <a
                             key={phone}
@@ -509,7 +568,6 @@ export default function Cravings() {
                             ☎️ {phone}
                           </a>
                         ))}
-                        {/* Website tag */}
                         {res.website && (
                           <a
                             href={res.website}
