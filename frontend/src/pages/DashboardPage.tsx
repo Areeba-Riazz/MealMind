@@ -1,9 +1,11 @@
 import { Link } from 'react-router-dom';
-import { useMemo } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSavedRecipes } from '../context/SavedRecipesContext';
 import { useFoodLinks } from '../context/FoodLinksContext';
 import { usePlannedMealsThisWeek } from '../hooks/usePlannedMealsThisWeek';
+import { usePreferences } from '../context/PreferencesContext';
+import { getDailyRecommendations, saveDailyRecommendations, type DailyRecommendationDoc } from '../lib/firestoreUserData';
 
 const QUICK_ACTIONS = [
   { to: '/demo', label: 'AI Chef', emoji: '👨‍🍳', desc: 'Get a recipe from your fridge', accent: true },
@@ -19,6 +21,55 @@ export default function DashboardPage() {
   const { saved } = useSavedRecipes();
   const { links } = useFoodLinks();
   const plannedThisWeek = usePlannedMealsThisWeek();
+  const { preferences } = usePreferences();
+
+  const [dailyRecs, setDailyRecs] = useState<DailyRecommendationDoc | null>(null);
+  const [isGeneratingRecs, setIsGeneratingRecs] = useState(false);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    
+    const getTodayStr = () => {
+      const d = new Date();
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
+
+    const fetchOrGenerateRecs = async () => {
+      const today = getTodayStr();
+      try {
+        const existing = await getDailyRecommendations(user.uid, today);
+        if (existing) {
+          setDailyRecs(existing);
+          return;
+        }
+
+        setIsGeneratingRecs(true);
+        const res = await fetch('/api/daily-recommendations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            preferences, 
+            dietary: { diets: preferences.diets, allergens: preferences.allergens } 
+          })
+        });
+        
+        if (!res.ok) throw new Error('Failed to generate daily recommendations');
+        
+        const data = await res.json();
+        await saveDailyRecommendations(user.uid, today, data);
+        setDailyRecs({ id: today, ...data });
+      } catch (err) {
+        console.error("Auto-generation of daily recommendations failed:", err);
+      } finally {
+        setIsGeneratingRecs(false);
+      }
+    };
+
+    fetchOrGenerateRecs();
+  }, [user?.uid, preferences]);
 
   const firstName = user?.displayName?.split(' ')[0] ?? user?.email?.split('@')[0] ?? 'there';
 
@@ -104,9 +155,76 @@ export default function DashboardPage() {
         @media (max-width: 480px) {
           .dash-grid { grid-template-columns: repeat(2, 1fr); }
         }
+
+        /* ── Daily Banner ── */
+        .dash-daily-banner {
+          background: linear-gradient(135deg, rgba(232,82,42,0.06), rgba(245,200,66,0.06));
+          border: 1px solid rgba(232,82,42,0.15);
+          border-radius: 18px;
+          margin-bottom: 1.5rem;
+          overflow: hidden;
+          transition: transform 0.2s, border-color 0.2s;
+          backdrop-filter: blur(10px);
+        }
+        .dash-daily-banner:hover {
+          transform: translateY(-2px);
+          border-color: rgba(232,82,42,0.3);
+        }
+        .dash-daily-content {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 1.2rem 1.5rem;
+          color: var(--text);
+          text-decoration: none;
+          font-weight: 500;
+          font-size: 0.95rem;
+        }
+        .dash-daily-content.loading {
+          justify-content: center;
+          gap: 0.8rem;
+          color: var(--muted);
+          pointer-events: none;
+        }
+        .dash-daily-text strong {
+          color: var(--accent);
+          margin-right: 0.4rem;
+        }
+        .dash-daily-arrow {
+          font-weight: 700;
+          color: var(--accent);
+          font-size: 0.85rem;
+        }
+        @keyframes spinPulse {
+          0% { transform: scale(1) rotate(0deg); opacity: 0.8; }
+          50% { transform: scale(1.1) rotate(10deg); opacity: 1; }
+          100% { transform: scale(1) rotate(-10deg); opacity: 0.8; }
+        }
+        .dash-spinner {
+          display: inline-block;
+          animation: spinPulse 1.5s infinite ease-in-out;
+        }
       `}</style>
 
       <div className="dash-wrap">
+        {(isGeneratingRecs || dailyRecs) && (
+          <div className="dash-daily-banner">
+            {isGeneratingRecs ? (
+              <div className="dash-daily-content loading">
+                <span className="dash-spinner">🪄</span>
+                <span>Cooking up today's recommendations...</span>
+              </div>
+            ) : dailyRecs && (
+              <Link to="/daily-recommendations" className="dash-daily-content">
+                <div className="dash-daily-text">
+                  <strong>Today's Menu:</strong> Cook <em>{dailyRecs.recipe.title}</em> or Order <em>{dailyRecs.order.title}</em>
+                </div>
+                <span className="dash-daily-arrow">View details →</span>
+              </Link>
+            )}
+          </div>
+        )}
+
         <div className="dash-hero">
           <div className="dash-hero-pill">🌶️ Pakistan's AI Meal Planner</div>
           <h1>

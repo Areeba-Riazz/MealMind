@@ -271,10 +271,60 @@ Respond ONLY with a valid JSON array of ${restaurants.length} objects in the sam
   }
 }
 
+/**
+ * Generates daily recommendations: 1 recipe and 1 delivery order.
+ */
+async function generateDailyRecommendations(preferences, dietary) {
+  const systemInstruction = `
+    You are MealMind's culinary advisor for Pakistani users.
+    Generate exactly 2 daily recommendations for the user:
+    1. A home-cooked recipe.
+    2. A food-delivery order suggestion (types of dishes or a Pakistani restaurant chain).
+    
+    Take into account their preferences: ${JSON.stringify(preferences || {})}
+    And their dietary restrictions: ${JSON.stringify(dietary || {})}
+    
+    CRITICAL: Never suggest food that violates their allergies or dietary restrictions.
+  `;
+
+  const prompt = `
+    Return a JSON object with two top-level keys: "recipe" and "order".
+    
+    For "recipe", include:
+    - title: string
+    - description: string
+    - ingredients: array of strings
+    - instructions: array of strings
+    - youtubeUrl: optional string (if a specific well-known dish, guess a search-friendly youtube URL like https://www.youtube.com/results?search_query=Dish+Name, or omit)
+    - nutrition: object with calories, proteinG, carbsG, fatG, fiberG
+    
+    For "order", include:
+    - title: string (e.g., "Smash Beef Burger from a local joint")
+    - description: string (why it fits their cravings/budget)
+    - estimatedCost: string (e.g., "Rs. 850")
+    
+    Respond ONLY with valid JSON.
+  `;
+
+  let responseText = await generateWithFallback(prompt, { systemInstruction, isJson: true });
+  responseText = responseText.replace(/```json/g, "").replace(/```/g, "").trim();
+
+  try {
+    const parsed = JSON.parse(responseText);
+    // ensure rating fields exist as null initially
+    if (parsed.recipe) parsed.recipe.rating = null;
+    if (parsed.order) parsed.order.rating = null;
+    return parsed;
+  } catch (err) {
+    throw new Error("Failed to parse daily recommendations JSON: " + err.message);
+  }
+}
+
 module.exports = {
   systemInstructionContent,
   searchRecipesOnline,
   parseQuery,
   enrichAllRestaurantLinks,
   generateWithFallback,
+  generateDailyRecommendations,
 };

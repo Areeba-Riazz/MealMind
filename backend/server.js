@@ -35,6 +35,7 @@ const {
   parseQuery,
   enrichAllRestaurantLinks,
   generateWithFallback,
+  generateDailyRecommendations,
 } = require("./services/ai");
 
 const { searchPlaces } = require("./services/maps");
@@ -236,6 +237,22 @@ Respond EXACTLY in valid JSON. Use this schema:
     console.error("Backend AI Error:", error);
     const errorMessage = error.message || "Unknown error occurred while connecting to the AI.";
     return res.status(500).json({ error: `Failed to connect to the AI Chef: ${errorMessage}` });
+  }
+});
+
+// ─────────────────────────────────────────────────────────
+// POST /api/daily-recommendations
+// ─────────────────────────────────────────────────────────
+app.post("/api/daily-recommendations", async (req, res) => {
+  try {
+    const { preferences, dietary } = req.body;
+    
+    const recommendations = await generateDailyRecommendations(preferences || {}, dietary || {});
+    
+    return res.status(200).json(recommendations);
+  } catch (error) {
+    console.error("Daily Recommendations Error:", error);
+    return res.status(500).json({ error: "Failed to generate daily recommendations." });
   }
 });
 
