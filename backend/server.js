@@ -75,7 +75,7 @@ app.post("/api/cravings", async (req, res) => {
     return res.status(500).json({ error: "Server is not configured: GOOGLE_MAPS_API_KEY is missing." });
   }
 
-  const { query, lat, lng, area } = req.body;
+  const { query, lat, lng, area, radiusMeters } = req.body;
 
   if (!query || typeof query !== "string" || query.trim() === "") {
     return res.status(400).json({ error: "A non-empty query string is required." });
@@ -104,7 +104,7 @@ app.post("/api/cravings", async (req, res) => {
 
   let rawPlaces;
   try {
-    rawPlaces = await searchPlaces(parsed.foodTerm, userLat, userLng, resolvedArea);
+    rawPlaces = await searchPlaces(parsed.foodTerm, userLat, userLng, resolvedArea, radiusMeters);
   } catch (err) {
     console.error("searchPlaces error:", err);
     return res.status(502).json({ error: `Failed to fetch restaurant data: ${err.message}` });

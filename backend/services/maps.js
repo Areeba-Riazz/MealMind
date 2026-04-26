@@ -1,7 +1,7 @@
 /**
  * Calls the Google Maps Places Text Search endpoint.
  */
-async function searchPlaces(foodTerm, lat, lng, area) {
+async function searchPlaces(foodTerm, lat, lng, area, radiusMeters) {
   const apiKey = process.env.GOOGLE_MAPS_API_KEY;
   if (!apiKey) {
     throw new Error("GOOGLE_MAPS_API_KEY is not configured");
@@ -17,7 +17,9 @@ async function searchPlaces(foodTerm, lat, lng, area) {
 
   if (lat != null && lng != null) {
     params.set("location", `${lat},${lng}`);
-    params.set("radius", "5000");
+    // Use provided radius, clamp between 500m and 50000m, default 5000m
+    const radius = Math.min(50000, Math.max(500, Number(radiusMeters) || 5000));
+    params.set("radius", String(radius));
   }
 
   const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?${params.toString()}`;
