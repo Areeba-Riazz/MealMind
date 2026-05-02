@@ -31,3 +31,4 @@ npm-debug.log*
 .env.*.local
 **/.env
 !**/.env.example
+PHASE4_COMPLETE_GUIDE.md
