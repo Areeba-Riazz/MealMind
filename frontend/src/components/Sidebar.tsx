@@ -311,8 +311,30 @@ export default function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean;
         .sb-logout-text { transition: opacity 0.15s ease; }
         .sb.sb-c .sb-logout-text { display: none; }
 
-      <style>{`
-        /* ... existing styles ... */
+        .sb-theme-toggle {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.4rem;
+          padding: 0.52rem;
+          border-radius: 9px;
+          border: 1px solid var(--border2);
+          background: transparent;
+          color: var(--text);
+          font: 500 0.78rem 'DM Sans', sans-serif;
+          cursor: pointer;
+          transition: all 0.18s;
+          overflow: hidden;
+          white-space: nowrap;
+          margin-bottom: 0.4rem;
+        }
+        .sb-theme-toggle:hover {
+          background: var(--glass-hover);
+        }
+        .sb.sb-c .sb-theme-text { display: none; }
+
+        /* ── Mobile Drawer ── */
         .sb-mobile-close {
           display: none;
           background: transparent;
