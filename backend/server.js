@@ -1,6 +1,9 @@
+// Load backend secrets
+const dotenv = require("dotenv");
+dotenv.config();
 const express = require("express");
 const cors = require("cors");
-const dotenv = require("dotenv");
+
 
 // Utility and Service Imports
 const {
@@ -40,8 +43,6 @@ const {
 
 const { searchPlaces } = require("./services/maps");
 
-// Load backend secrets
-dotenv.config();
 
 // Warn early if the Maps key is missing so the issue is obvious in logs
 if (!process.env.GOOGLE_MAPS_API_KEY) {
@@ -66,7 +67,7 @@ app.use(cors({
     if (!origin || ALLOWED_ORIGINS.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS: ' + origin));
+      callback(new Error('CORS blocked: ' + origin));
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -74,8 +75,7 @@ app.use(cors({
   credentials: true
 }));
 
-// CORS must be BEFORE routes — also handle preflight explicitly
-app.options('*', cors());
+app.options('*', cors()); // handle preflight
 
 // ─────────────────────────────────────────────────────────
 // POST /api/cravings
@@ -255,9 +255,9 @@ Respond EXACTLY in valid JSON. Use this schema:
 app.post("/api/daily-recommendations", async (req, res) => {
   try {
     const { preferences, dietary } = req.body;
-    
+
     const recommendations = await generateDailyRecommendations(preferences || {}, dietary || {});
-    
+
     return res.status(200).json(recommendations);
   } catch (error) {
     console.error("Daily Recommendations Error:", error);
@@ -361,9 +361,9 @@ Provide a concise, helpful, and friendly response. If they ask for substitutions
   }
 });
 
-const PORT = 5001;
+const PORT = process.env.PORT || 5001;
 const server = app.listen(PORT, () => {
-  console.log(`✅ MealMind Backend running perfectly on http://localhost:${PORT}`);
+  console.log(`✅ MealMind Backend running on port ${PORT}`);
 });
 
 server.on("error", (err) => {
