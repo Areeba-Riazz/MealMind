@@ -59,18 +59,22 @@ const ALLOWED_ORIGINS = [
   "http://localhost:5173",
   "http://localhost:5174",
   "http://localhost:4173",
+  "https://meal-mind-sage.vercel.app",
   ...(process.env.FRONTEND_URL ? process.env.FRONTEND_URL.split(',').map(url => url.trim()) : []),
 ].filter(Boolean);
 
 app.use(cors({
   origin: function (origin, callback) {
-    // allow requests with no origin (mobile apps, curl, Postman)
     if (!origin) return callback(null, true);
-    if (ALLOWED_ORIGINS.includes(origin)) {
+    // allow production + any vercel preview for this project
+    if (
+      ALLOWED_ORIGINS.includes(origin) ||
+      /https:\/\/meal-mind.*\.vercel\.app$/.test(origin)
+    ) {
       callback(null, true);
     } else {
-      console.warn('CORS blocked origin:', origin);
-      callback(null, false); // don't throw error, just block silently
+      console.warn('CORS blocked:', origin);
+      callback(null, false);
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -78,7 +82,6 @@ app.use(cors({
   credentials: true
 }));
 
-// preflight — must come AFTER the cors middleware
 app.options(/.*/, (req, res) => res.sendStatus(204));
 
 // ─────────────────────────────────────────────────────────
