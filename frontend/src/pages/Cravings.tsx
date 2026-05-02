@@ -290,7 +290,7 @@ export default function Cravings() {
       // Always send radius so backend can use it
       body.radiusMeters = radiusMeters;
 
-      const res = await fetch('/api/cravings', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/cravings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
