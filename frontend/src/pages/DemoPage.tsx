@@ -285,11 +285,21 @@ export default function DemoPage() {
         .demo-online-card:hover { border-color:rgba(232,82,42,0.25); background:rgba(232,82,42,0.04); }
         .demo-online-icon { font-size:1.2rem; flex-shrink:0; margin-top:0.05rem; }
         .demo-online-body { min-width:0; flex:1; }
-        .demo-online-title { font-size:0.88rem; font-weight:700; color:var(--text); margin:0 0 0.2rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .demo-online-title { font-size:0.88rem; font-weight:700; color:var(--text); margin:0 0 0.2rem; line-height:1.3; }
         .demo-online-title:hover { color:var(--accent); }
         .demo-online-snippet { font-size:0.77rem; color:var(--muted); line-height:1.5; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; margin:0; }
-        .demo-online-domain { font-size:0.72rem; color:var(--accent); margin-top:0.3rem; font-weight:600; opacity:0.8; }
-        .demo-online-actions { display:flex; align-items:center; gap:0.5rem; margin-top:0.5rem; }
+        .demo-online-domain { font-size:0.72rem; color:var(--accent); font-weight:600; opacity:0.8; }
+        .demo-online-actions { display:flex; align-items:center; gap:0.6rem; margin-top:0.7rem; flex-wrap:wrap; }
+
+        @media (max-width: 600px) {
+          .demo-online-card { padding: 1rem; }
+          .demo-online-actions { gap: 0.4rem; justify-content: space-between; }
+          .demo-follow-btn { flex: 1; justify-content: center; padding: 0.5rem 0.8rem !important; }
+          .demo-online-save-btn { flex: 0.8; justify-content: center; padding: 0.5rem 0.8rem !important; }
+          .demo-online-domain { width: 100%; margin-bottom: 0.2rem; order: -1; }
+          .demo-recipe-title { font-size: 1.35rem; }
+          .demo-card, .demo-result { padding: 1.5rem 1.25rem; }
+        }
 
         /* Recipe steps */
         .demo-steps-label { font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:1.5px; color:var(--muted); margin:0 0 1rem; }
