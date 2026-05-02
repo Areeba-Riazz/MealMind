@@ -139,20 +139,27 @@ export default function AppShellLayout() {
 
         .mm-hamburger {
           display: none;
-          background: transparent;
+          background: var(--glass-bg);
           border: 1px solid var(--border);
-          color: var(--muted);
-          width: 38px;
-          height: 38px;
-          border-radius: 10px;
+          color: var(--text);
+          padding: 0.5rem 0.9rem;
+          border-radius: 12px;
           align-items: center;
           justify-content: center;
-          font-size: 1.2rem;
+          gap: 0.6rem;
+          font-size: 0.9rem;
+          font-weight: 700;
           cursor: pointer;
           margin-right: 0.75rem;
           transition: all 0.2s;
+          font-family: 'DM Sans', sans-serif;
         }
-        .mm-hamburger:hover { background: var(--glass-hover); color: var(--text); }
+        .mm-hamburger span {
+          font-size: 0.8rem;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+        }
+        .mm-hamburger:hover { border-color: var(--accent); color: var(--accent); }
 
         @media (max-width: 900px) {
           .mm-hamburger { display: flex; }
@@ -170,12 +177,16 @@ export default function AppShellLayout() {
           {/* Top bar */}
           <header className="mm-topbar">
             <div className="mm-topbar-left" style={{ display: 'flex', alignItems: 'center' }}>
-              <button className="mm-hamburger" onClick={() => setSidebarOpen(true)} aria-label="Open menu">☰</button>
+              <button className="mm-hamburger" onClick={() => setSidebarOpen(true)} aria-label="Open menu">
+                <span>☰</span>
+                <span>Menu</span>
+              </button>
               <div>
                 <h2>{meta.title}</h2>
                 {meta.sub && <p>{meta.sub}</p>}
               </div>
             </div>
+
             <div className="mm-topbar-right">
               {isCravings && !loc.loading && (
                 <button

@@ -77,6 +77,27 @@ export default function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean;
           .sb.mobile-open {
             transform: translateX(0);
           }
+          /* Force labels to show on mobile even if collapsed on desktop */
+          .sb.mobile-open .sb-brand-name,
+          .sb.mobile-open .sb-link-label,
+          .sb.mobile-open .sb-user-info,
+          .sb.mobile-open .sb-theme-text,
+          .sb.mobile-open .sb-logout-text,
+          .sb.mobile-open .sb-section-label {
+            display: block !important;
+            opacity: 1 !important;
+          }
+          .sb.mobile-open .sb-link {
+            justify-content: flex-start !important;
+            padding: 0.6rem 0.75rem !important;
+            gap: 0.65rem !important;
+          }
+          .sb.mobile-open .sb-user-card {
+            justify-content: flex-start !important;
+            padding: 0.65rem 0.75rem !important;
+            gap: 0.65rem !important;
+          }
+          
           .sb-overlay {
             position: fixed;
             inset: 0;

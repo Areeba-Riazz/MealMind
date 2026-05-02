@@ -337,8 +337,37 @@ export default function ProfilePage() {
         .prof-header-badge { margin-left: auto; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.9rem; background: rgba(46,194,126,0.1); border: 1px solid rgba(46,194,126,0.3); border-radius: 100px; font-size: 0.75rem; font-weight: 700; color: #2ec27e; letter-spacing: 0.5px; text-transform: uppercase; flex-shrink: 0; }
 
         /* ── Tabs ── */
-        .prof-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.8rem; background: var(--input-bg); border: 1px solid var(--border2); border-radius: 14px; padding: 0.35rem; }
-        .prof-tab { flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.45rem; padding: 0.7rem 1rem; border-radius: 10px; border: none; background: transparent; color: var(--muted); font: 600 0.88rem/1 'DM Sans', sans-serif; cursor: pointer; transition: all 0.22s; }
+        .prof-tabs { 
+          display: flex; 
+          gap: 0.5rem; 
+          margin-bottom: 1.8rem; 
+          background: var(--input-bg); 
+          border: 1px solid var(--border2); 
+          border-radius: 14px; 
+          padding: 0.35rem; 
+          overflow-x: auto; 
+          scrollbar-width: none; 
+          -ms-overflow-style: none; 
+        }
+        .prof-tabs::-webkit-scrollbar { display: none; }
+        
+        .prof-tab { 
+          flex: 1; 
+          display: flex; 
+          align-items: center; 
+          justify-content: center; 
+          gap: 0.45rem; 
+          padding: 0.7rem 1.2rem; 
+          border-radius: 10px; 
+          border: none; 
+          background: transparent; 
+          color: var(--muted); 
+          font: 600 0.88rem/1 'DM Sans', sans-serif; 
+          cursor: pointer; 
+          transition: all 0.22s; 
+          white-space: nowrap; 
+          min-width: fit-content;
+        }
         .prof-tab:hover { color: var(--text); background: var(--glass-hover); }
         .prof-tab.active { background: rgba(232,82,42,0.14); color: var(--accent); border: 1px solid rgba(232,82,42,0.32); box-shadow: 0 2px 12px rgba(232,82,42,0.12); }
         .prof-tab .tab-emoji { font-size: 1rem; }
