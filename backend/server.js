@@ -64,10 +64,13 @@ const ALLOWED_ORIGINS = [
 
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+    // allow requests with no origin (mobile apps, curl, Postman)
+    if (!origin) return callback(null, true);
+    if (ALLOWED_ORIGINS.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('CORS blocked: ' + origin));
+      console.warn('CORS blocked origin:', origin);
+      callback(null, false); // don't throw error, just block silently
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -75,7 +78,8 @@ app.use(cors({
   credentials: true
 }));
 
-app.options('*', cors()); // handle preflight
+// preflight — must come AFTER the cors middleware
+app.options(/.*/, (req, res) => res.sendStatus(204));
 
 // ─────────────────────────────────────────────────────────
 // POST /api/cravings
