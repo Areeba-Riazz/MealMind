@@ -14,7 +14,7 @@ const NAV_ITEMS = [
   { to: '/food-links', label: 'Food Links', emoji: '🔗' },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ mobileOpen, onClose }: { mobileOpen?: boolean; onClose?: () => void }) {
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
@@ -59,10 +59,35 @@ export default function Sidebar() {
           -webkit-backdrop-filter: blur(24px);
           padding: 0;
           overflow: hidden;
-          z-index: 100;
-          transition: width 0.22s cubic-bezier(0.4,0,0.2,1);
+          z-index: 1000;
+          transition: width 0.22s cubic-bezier(0.4,0,0.2,1), transform 0.3s ease;
         }
         .sb.sb-c { width: 64px; }
+
+        @media (max-width: 900px) {
+          .sb {
+            position: fixed;
+            left: 0;
+            top: 0;
+            transform: translateX(-100%);
+            width: 280px !important;
+            z-index: 2000;
+            box-shadow: 20px 0 50px rgba(0,0,0,0.3);
+          }
+          .sb.mobile-open {
+            transform: translateX(0);
+          }
+          .sb-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+            z-index: 1999;
+            animation: sb-fade 0.2s ease both;
+          }
+          @keyframes sb-fade { from { opacity: 0; } to { opacity: 1; } }
+        }
+
 
         /* ── Brand row (brand link + toggle button) ── */
         .sb-head {
@@ -286,35 +311,34 @@ export default function Sidebar() {
         .sb-logout-text { transition: opacity 0.15s ease; }
         .sb.sb-c .sb-logout-text { display: none; }
 
-        /* ── Theme Toggle ── */
-        .sb-theme-toggle {
-          width: 100%;
-          display: flex;
+      <style>{`
+        /* ... existing styles ... */
+        .sb-mobile-close {
+          display: none;
+          background: transparent;
+          border: 1px solid var(--border);
+          color: var(--muted);
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
           align-items: center;
           justify-content: center;
-          gap: 0.4rem;
-          padding: 0.52rem;
-          border-radius: 9px;
-          border: 1px solid var(--border2);
-          background: transparent;
-          color: var(--text);
-          font: 500 0.78rem 'DM Sans', sans-serif;
+          margin-right: 1rem;
+          font-size: 1.2rem;
           cursor: pointer;
-          transition: all 0.18s;
-          overflow: hidden;
-          white-space: nowrap;
-          margin-bottom: 0.4rem;
         }
-        .sb-theme-toggle:hover {
-          background: var(--glass-hover);
+        @media (max-width: 900px) {
+          .sb-mobile-close { display: flex; }
+          .sb-toggle { display: none; }
         }
-        .sb.sb-c .sb-theme-text { display: none; }
       `}</style>
 
-      <aside className={`sb${collapsed ? ' sb-c' : ''}`} aria-label="Main navigation">
+      {mobileOpen && <div className="sb-overlay" onClick={onClose} />}
+
+      <aside className={`sb${collapsed ? ' sb-c' : ''}${mobileOpen ? ' mobile-open' : ''}`} aria-label="Main navigation">
         {/* Brand + toggle */}
         <div className="sb-head">
-          <Link to="/dashboard" className="sb-brand">
+          <Link to="/dashboard" className="sb-brand" onClick={onClose}>
             <div className="sb-brand-icon">🍛</div>
             <span className="sb-brand-name">Meal<span>Mind</span></span>
           </Link>
@@ -326,6 +350,7 @@ export default function Sidebar() {
           >
             {collapsed ? '›' : '‹'}
           </button>
+          <button className="sb-mobile-close" onClick={onClose} aria-label="Close menu">✕</button>
         </div>
 
         {/* Nav links */}
@@ -338,6 +363,7 @@ export default function Sidebar() {
               end={to === '/dashboard'}
               className={({ isActive }) => `sb-link${isActive ? ' active' : ''}`}
               title={collapsed ? navLabel : undefined}
+              onClick={onClose}
             >
               <span className="sb-link-emoji">{emoji}</span>
               <span className="sb-link-label">{navLabel}</span>
@@ -347,7 +373,7 @@ export default function Sidebar() {
 
         {/* User footer */}
         <div className="sb-footer">
-          <NavLink to="/profile" className="sb-user-card" title={collapsed ? label : undefined}>
+          <NavLink to="/profile" className="sb-user-card" title={collapsed ? label : undefined} onClick={onClose}>
             <div className="sb-avatar">{initials}</div>
             <div className="sb-user-info">
               <div className="sb-user-name">{label}</div>
