@@ -27,6 +27,7 @@ export default function AppShellLayout() {
   const geo = useGeolocation();
   const loc = useLocationDisplay(user?.uid);
   const [showLocModal, setShowLocModal] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
     <>
@@ -136,20 +137,44 @@ export default function AppShellLayout() {
         .mm-shell-content::-webkit-scrollbar-track { background: transparent; }
         .mm-shell-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
 
-        @media (max-width: 768px) {
-          .mm-topbar { padding: 0.9rem 1.2rem; }
+        .mm-hamburger {
+          display: none;
+          background: transparent;
+          border: 1px solid var(--border);
+          color: var(--muted);
+          width: 38px;
+          height: 38px;
+          border-radius: 10px;
+          align-items: center;
+          justify-content: center;
+          font-size: 1.2rem;
+          cursor: pointer;
+          margin-right: 0.75rem;
+          transition: all 0.2s;
+        }
+        .mm-hamburger:hover { background: var(--glass-hover); color: var(--text); }
+
+        @media (max-width: 900px) {
+          .mm-hamburger { display: flex; }
+          .mm-topbar { padding: 0.8rem 1rem; }
           .mm-shell-content { padding: 1.2rem; }
+          .mm-topbar-left p { display: none; }
+          .mm-topbar-loc-btn { max-width: 120px; }
+          .loc-text { display: none; }
         }
       `}</style>
 
       <div className="mm-shell">
-        <Sidebar />
+        <Sidebar mobileOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
         <div className="mm-shell-main">
           {/* Top bar */}
           <header className="mm-topbar">
-            <div className="mm-topbar-left">
-              <h2>{meta.title}</h2>
-              {meta.sub && <p>{meta.sub}</p>}
+            <div className="mm-topbar-left" style={{ display: 'flex', alignItems: 'center' }}>
+              <button className="mm-hamburger" onClick={() => setSidebarOpen(true)} aria-label="Open menu">☰</button>
+              <div>
+                <h2>{meta.title}</h2>
+                {meta.sub && <p>{meta.sub}</p>}
+              </div>
             </div>
             <div className="mm-topbar-right">
               {isCravings && !loc.loading && (
@@ -160,13 +185,14 @@ export default function AppShellLayout() {
                   title="Change location"
                 >
                   <span>📍</span>
-                  <span>{loc.displayLabel ?? 'Set location'}</span>
+                  <span className="loc-text">{loc.displayLabel ?? 'Set location'}</span>
                   {loc.hasOverride && <span className="mm-topbar-loc-manual">manual</span>}
                 </button>
               )}
               <div className="mm-topbar-pill">🌶️ Free tier</div>
             </div>
           </header>
+
 
           {showLocModal && (
             <LocationPickerModal
