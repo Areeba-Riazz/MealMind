@@ -5,11 +5,65 @@ const { cityFromAddress } = require("../utils/geo");
 
 /**
  * Gemini expects system_instruction as a Content object (parts), not a bare string.
- * @param {string} text
- * @returns {{ parts: { text: string }[] }}
  */
 function systemInstructionContent(text) {
   return { parts: [{ text }] };
+}
+
+/**
+ * Key Collection & Rotation Logic
+ */
+function collectKeys(prefix) {
+  const keys = new Set();
+  
+  // 1. Check primary env var (might be comma-separated)
+  const primary = process.env[prefix];
+  if (primary) {
+    primary.split(',').forEach(k => {
+      const trimmed = k.trim();
+      if (trimmed) keys.add(trimmed);
+    });
+  }
+
+  // 2. Scan all env vars for matches (e.g., GEMINI_API_KEY_1, GEMINI_API_KEY_ANYTHING)
+  Object.keys(process.env).forEach(envKey => {
+    if (envKey.startsWith(`${prefix}_`)) {
+      const value = process.env[envKey];
+      if (value) {
+        // Each of these could also be comma-separated
+        value.split(',').forEach(k => {
+          const trimmed = k.trim();
+          if (trimmed) keys.add(trimmed);
+        });
+      }
+    }
+  });
+
+  return Array.from(keys);
+}
+
+function interleaveUnits() {
+  const geminiKeys = collectKeys("GEMINI_API_KEY");
+  const groqKeys = collectKeys("GROQ_API_KEY");
+  
+  const units = [];
+  const maxLen = Math.max(geminiKeys.length, groqKeys.length);
+  
+  for (let i = 0; i < maxLen; i++) {
+    if (geminiKeys[i]) units.push({ provider: "gemini", key: geminiKeys[i] });
+    if (groqKeys[i]) units.push({ provider: "groq", key: groqKeys[i] });
+  }
+  
+  return units;
+}
+
+// Global rotation state
+let aiUnits = interleaveUnits();
+let currentUnitIndex = 0;
+
+// Re-initialize if env changes (useful for some environments, though usually static)
+function refreshAIUnits() {
+  aiUnits = interleaveUnits();
 }
 
 /**
@@ -49,44 +103,112 @@ async function searchRecipesOnline(ingredients, goal, type = "web") {
   }
 }
 
+// Removed: fallbackToGroq is now integrated into generateWithFallback
+
 /**
- * Fallback to Groq API using native fetch if Gemini fails.
+ * Unified AI generation function with Interleaved Rotation & Failover
+ * @param {string|Array} promptOrMessages A string prompt OR an array of messages for chat
+ * @param {object} options { systemInstruction: string, isJson: boolean }
  */
-async function fallbackToGroq(messages, systemInstruction, isJson = false) {
-  const groqKey = process.env.GROQ_API_KEY;
-  if (!groqKey) {
-    throw new Error("GROQ_API_KEY is not set.");
+async function generateWithFallback(promptOrMessages, options = {}) {
+  // Ensure we have units
+  if (aiUnits.length === 0) {
+    refreshAIUnits();
+    if (aiUnits.length === 0) {
+      throw new Error("No AI API keys found (Gemini or Groq) in environment variables.");
+    }
   }
 
+  const errors = [];
+  
+  // Try each unit starting from current rotation index
+  for (let i = 0; i < aiUnits.length; i++) {
+    const index = (currentUnitIndex + i) % aiUnits.length;
+    const unit = aiUnits[index];
+    
+    try {
+      let resultText = "";
+      
+      if (unit.provider === "gemini") {
+        resultText = await tryGemini(unit.key, promptOrMessages, options);
+      } else if (unit.provider === "groq") {
+        resultText = await tryGroq(unit.key, promptOrMessages, options);
+      } else {
+        continue; // Unknown provider
+      }
+
+      // Success! Update rotation index for the NEXT call
+      currentUnitIndex = (index + 1) % aiUnits.length;
+      return resultText;
+    } catch (error) {
+      const errorMsg = error.message || String(error);
+      console.warn(`⚠️ [AI Rotation] Unit ${index} (${unit.provider}) failed: ${errorMsg}`);
+      errors.push(`${unit.provider}: ${errorMsg}`);
+      // Continue to next unit...
+    }
+  }
+
+  // If we reach here, all units failed
+  throw new Error(`All AI providers exhausted. Errors: ${errors.join(" | ")}`);
+}
+
+/**
+ * Provider-specific: Gemini
+ */
+async function tryGemini(apiKey, promptOrMessages, options) {
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const modelOptions = { model: "gemini-flash-latest" };
+  if (options.systemInstruction) {
+    modelOptions.systemInstruction = systemInstructionContent(options.systemInstruction);
+  }
+  const model = genAI.getGenerativeModel(modelOptions);
+
+  if (Array.isArray(promptOrMessages)) {
+    const history = promptOrMessages.slice(0, -1).map(m => ({
+      role: m.role === "assistant" ? "model" : m.role,
+      parts: [{ text: m.content }]
+    }));
+    const chat = model.startChat({ history });
+    const lastMsg = promptOrMessages[promptOrMessages.length - 1];
+    const result = await chat.sendMessage(lastMsg.content);
+    return result.response.text();
+  } else {
+    const result = await model.generateContent(promptOrMessages);
+    return result.response.text();
+  }
+}
+
+/**
+ * Provider-specific: Groq
+ */
+async function tryGroq(apiKey, promptOrMessages, options) {
   const formattedMessages = [];
-  if (systemInstruction) {
-    formattedMessages.push({ role: "system", content: systemInstruction });
+  if (options.systemInstruction) {
+    formattedMessages.push({ role: "system", content: options.systemInstruction });
   }
 
-  if (Array.isArray(messages)) {
-    // Chatbot format
-    for (const m of messages) {
+  if (Array.isArray(promptOrMessages)) {
+    for (const m of promptOrMessages) {
       formattedMessages.push({ 
-        role: m.role === "model" ? "assistant" : m.role, 
+        role: m.role === "assistant" || m.role === "model" ? "assistant" : m.role, 
         content: m.content || m.parts?.[0]?.text 
       });
     }
   } else {
-    // String prompt
-    formattedMessages.push({ role: "user", content: messages });
+    formattedMessages.push({ role: "user", content: promptOrMessages });
   }
 
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${groqKey}`,
+      "Authorization": `Bearer ${apiKey}`,
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
       model: "llama-3.3-70b-versatile",
       messages: formattedMessages,
       temperature: 0.7,
-      response_format: isJson ? { type: "json_object" } : undefined
+      response_format: options.isJson ? { type: "json_object" } : undefined
     })
   });
 
@@ -97,56 +219,6 @@ async function fallbackToGroq(messages, systemInstruction, isJson = false) {
 
   const data = await response.json();
   return data.choices[0].message.content;
-}
-
-/**
- * Unified AI generation function with Groq Fallback
- * @param {string|Array} promptOrMessages A string prompt OR an array of messages for chat
- * @param {object} options { systemInstruction: string, isJson: boolean }
- */
-async function generateWithFallback(promptOrMessages, options = {}) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("Missing GEMINI_API_KEY in the backend .env");
-  }
-
-  try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const modelOptions = { model: "gemini-flash-latest" };
-    if (options.systemInstruction) {
-      modelOptions.systemInstruction = systemInstructionContent(options.systemInstruction);
-    }
-    const model = genAI.getGenerativeModel(modelOptions);
-
-    let resultText = "";
-    if (Array.isArray(promptOrMessages)) {
-      // It's a chat sequence
-      const history = promptOrMessages.slice(0, -1).map(m => ({
-        role: m.role === "assistant" ? "model" : m.role,
-        parts: [{ text: m.content }]
-      }));
-      const chat = model.startChat({ history });
-      const lastMsg = promptOrMessages[promptOrMessages.length - 1];
-      const result = await chat.sendMessage(lastMsg.content);
-      resultText = result.response.text();
-    } else {
-      // It's a single prompt
-      const result = await model.generateContent(promptOrMessages);
-      resultText = result.response.text();
-    }
-
-    return resultText;
-  } catch (error) {
-    const errorStr = String(error.message || error).toLowerCase();
-    const isServiceDown = errorStr.includes("503") || error.status === 503 || errorStr.includes("fetch failed") || errorStr.includes("overloaded");
-    
-    if (isServiceDown && process.env.GROQ_API_KEY) {
-      console.warn("⚠️ Gemini failed or is overloaded. Falling back to Groq API...");
-      return await fallbackToGroq(promptOrMessages, options.systemInstruction, options.isJson);
-    }
-    // If not a 503 or no Groq key, re-throw
-    throw error;
-  }
 }
 
 /**
