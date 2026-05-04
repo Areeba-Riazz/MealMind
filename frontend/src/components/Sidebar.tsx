@@ -7,7 +7,7 @@ import { useTheme } from '../context/ThemeContext';
 
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'Dashboard', emoji: '🏠' },
-  { to: '/demo', label: 'AI Chef', emoji: '👨‍🍳' },
+  { to: '/chef', label: 'AI Chef', emoji: '👨‍🍳' },
   { to: '/cravings', label: 'Cravings', emoji: '🛵' },
   { to: '/meal-planner', label: 'Meal Planner', emoji: '📅' },
   { to: '/saved', label: 'Saved Recipes', emoji: '📖' },

@@ -181,7 +181,7 @@ export default function LandingPage() {
         .price-amount { font-family: var(--font-head); font-size: 2.5rem; font-weight: 800; letter-spacing: -1px; margin-bottom: 0.3rem; }
         .price-amount span { font-size: 1rem; font-weight: 400; color: var(--muted); }
         .price-desc { font-size: 0.87rem; color: var(--muted); margin-bottom: 2rem; line-height: 1.55; }
-        .price-features { list-style: none; display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 2rem; }
+        .price-features { list-style: none; display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 2rem; text-align: left; }
         .price-features li { font-size: 0.88rem; display: flex; gap: 0.65rem; align-items: flex-start; line-height: 1.4; }
         .price-features li::before { content: '✓'; color: var(--accent3); font-weight: 700; margin-top: 0.05rem; flex-shrink: 0; }
         .price-features li.off { color: var(--muted); }
@@ -307,8 +307,7 @@ export default function LandingPage() {
         <h1>Hungry? Let<br /><em>MealMind Decide.</em></h1>
         <p className="hero-sub">Tell MealMind what's in your fridge — or what you're craving. Get a recipe to cook or a restaurant to order from, in 10 seconds flat.</p>
         <div className="hero-btns">
-          <Link to="/demo" className="btn-main">Try AI Chef Free 🚀</Link>
-          <Link to="/login" className="btn-ghost">Log Into Account</Link>
+          <Link to="/signup" className="btn-main">Start Eating Smarter 🚀</Link>
         </div>
         <div className="hero-trust">
           <div className="trust-avatars">
@@ -473,19 +472,19 @@ export default function LandingPage() {
               {
                 name: 'Free', amount: 'Rs. 0', period: '/ forever',
                 desc: 'Perfect for getting started and exploring MealMind.',
-                features: ['10 AI meal decisions / day', 'Basic fridge scanner', 'Budget filtering', 'Basic calorie estimates', 'Restaurant suggestions'],
-                off: ['Weekly meal planning', 'Grocery list export', 'Family mode (4+ servings)', 'Priority AI responses'],
+                features: ['10 daily AI recommendations', 'Basic fridge scanner', 'Budget filtering', 'Basic calorie estimates', 'Restaurant suggestions'],
+                off: ['Multimodal Support (AI Vision)', 'Unlimited daily recommendations', 'Weekly meal planning', 'Grocery list export'],
                 cta: 'Get Started Free', accent: false,
               },
               {
                 name: 'Pro', amount: 'Rs. 499', period: '/ month',
                 desc: 'For people who are serious about eating smart every single day.',
-                features: ['Unlimited AI meal decisions', 'Advanced fridge scanner', 'Full macro tracking', 'Weekly meal planning', 'Grocery list export (PDF)', 'Family mode (up to 8 servings)', 'Ramadan Sehri/Iftar planner', 'Priority AI responses'],
+                features: ['Unlimited daily AI recommendations', 'Multimodal Support (AI sees your cooking)', 'Advanced fridge scanner', 'Full macro tracking', 'Weekly meal planning', 'Grocery list export (PDF)', 'Family mode (up to 8 servings)', 'Priority AI responses'],
                 off: [],
                 cta: 'Start 7-Day Free Trial', accent: true, badge: 'Most Popular',
               },
               {
-                name: 'Family', amount: 'Rs. 899', period: '/ month',
+                name: 'Family', amount: 'Rs. 1499', period: '/ month',
                 desc: 'Built for households managing meals, budgets, and multiple diets.',
                 features: ['Everything in Pro', 'Up to 5 family profiles', 'Separate dietary preferences per member', 'Combined weekly grocery list', 'Monthly meal budget report', 'WhatsApp meal reminders'],
                 off: [],
@@ -501,7 +500,7 @@ export default function LandingPage() {
                   {p.features.map((f, j) => <li key={j}>{f}</li>)}
                   {p.off.map((f, j) => <li key={'o' + j} className="off">{f}</li>)}
                 </ul>
-                <Link to="/demo" className={`btn-price ${p.accent ? 'btn-price-accent' : 'btn-price-outline'}`}>{p.cta}</Link>
+                <Link to="/signup" className={`btn-price ${p.accent ? 'btn-price-accent' : 'btn-price-outline'}`}>{p.cta}</Link>
               </div>
             ))}
           </div>
@@ -536,8 +535,7 @@ export default function LandingPage() {
           <h2 className="cta-title">What are you eating tonight?<br />Let MealMind decide. 🍛</h2>
           <p className="cta-sub">Join 50,000+ households who've replaced daily food stress with a 10-second AI decision. Free to start, no card required.</p>
           <div className="cta-btns">
-            <Link to="/demo" className="btn-main">Start Eating Smarter 🚀</Link>
-            <Link to="/login" className="btn-ghost">Log Into Account</Link>
+            <Link to="/signup" className="btn-main">Start Eating Smarter 🚀</Link>
           </div>
         </div>
       </section>

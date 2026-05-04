@@ -10,7 +10,7 @@ import LocationPickerModal from './LocationPickerModal';
 
 const PAGE_TITLES: Record<string, { title: string; sub: string }> = {
   '/dashboard': { title: 'Dashboard', sub: 'Your meal command center' },
-  '/demo': { title: 'AI Chef', sub: 'Generate a recipe from your fridge' },
+  '/chef': { title: 'AI Chef', sub: 'Generate a recipe from your fridge' },
   '/cravings': { title: 'Cravings', sub: 'Find the best food near you' },
   '/meal-planner': { title: 'Meal Planner', sub: 'Plan meals by week and meal type' },
   '/saved': { title: 'Saved Recipes', sub: 'Your personal recipe collection' },
@@ -168,6 +168,7 @@ export default function AppShellLayout() {
           .mm-topbar-left p { display: none; }
           .mm-topbar-loc-btn { max-width: 120px; }
           .loc-text { display: none; }
+          .mm-topbar-pill { display: none; }
         }
       `}</style>
 

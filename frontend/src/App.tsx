@@ -36,7 +36,7 @@ export default function App() {
                 <Route path="/onboarding" element={<OnboardingPage />} />
                 <Route element={<AppShellLayout />}>
                   <Route path="/dashboard" element={<DashboardPage />} />
-                  <Route path="/demo" element={<DemoPage />} />
+                  <Route path="/chef" element={<DemoPage />} />
                   <Route path="/cravings" element={<Cravings />} />
                   <Route path="/meal-planner" element={<MealPlannerPage />} />
                   <Route path="/profile" element={<ProfilePage />} />

@@ -1,19 +1,27 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 import { app } from '../lib/firebase';
 import { AUTH_CONFIG_MISSING, getAuthErrorMessage } from '../lib/authErrors';
+import { useAuth } from '../context/AuthContext';
 
 const floatingFoods = ['🍛', '🥘', '🫓', '🍖', '🧆', '🥗', '🍳', '🌶️', '🫚', '🍚', '🥙', '🍜', '🥑', '🍱', '🌮', '🧅', '🫛', '🥦', '🍣', '☕', '🧁', '🍰', '🫖', '🍩'];
 
 export default function Login() {
   const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [user, authLoading, navigate]);
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();

@@ -95,7 +95,7 @@ export default function Navbar() {
         ) : (
           <>
             <Link to="/" onClick={close}>Home</Link>
-            <Link to="/demo" onClick={close}>Try AI</Link>
+            <Link to="/chef" onClick={close}>Try AI</Link>
             <Link to="/cravings" onClick={close}>Local Search</Link>
           </>
         )}
@@ -111,8 +111,7 @@ export default function Navbar() {
               </div>
             ) : (
               <>
-                <Link to="/login" className="btn-nav-ghost" onClick={close}>Log In</Link>
-                <Link to="/demo" className="btn-nav-main" onClick={close}>Try Free 🚀</Link>
+                <Link to="/login" className="btn-nav-main" onClick={close}>Log In</Link>
               </>
             )
           )}
@@ -135,7 +134,7 @@ export default function Navbar() {
           ) : (
             <>
               <Link to="/">Home</Link>
-              <Link to="/demo">Try AI</Link>
+              <Link to="/chef">Try AI</Link>
               <Link to="/cravings">Local Search</Link>
             </>
           )}
@@ -154,12 +153,11 @@ export default function Navbar() {
               </div>
             ) : (
               <>
-                <Link to="/login" className="btn-nav-ghost">Log In</Link>
-                <Link to="/demo" className="btn-nav-main">Try Free 🚀</Link>
+                <Link to="/login" className="btn-nav-main">Log In</Link>
               </>
             )
           )}
-          <button className="nav-hamburger" onClick={() => setDrawerOpen(true)} aria-label="Open menu">
+          <button className="nav-hamburger" onClick={() => setDrawerOpen(!drawerOpen)} aria-label="Toggle menu">
             <span /><span /><span />
           </button>
         </div>

@@ -244,7 +244,7 @@ export default function SavedRecipesPage() {
             <div className="saved-empty-emoji">📖</div>
             <h3>Nothing saved yet</h3>
             <p>Generate a recipe with AI Chef or save a restaurant from Cravings to keep it here.</p>
-            <Link to="/demo">Go to AI Chef 👨‍🍳</Link>
+            <Link to="/chef">Go to AI Chef 👨‍🍳</Link>
           </div>
         ) : (
           <>
@@ -283,7 +283,7 @@ export default function SavedRecipesPage() {
 
             <div className="saved-cta-row">
               <p>Want more?</p>
-              <Link to="/demo">Generate with AI Chef →</Link>
+              <Link to="/chef">Generate with AI Chef →</Link>
             </div>
           </>
         )}

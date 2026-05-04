@@ -96,7 +96,8 @@ export function SavedRecipesProvider({ children }: { children: ReactNode }) {
         console.warn('[MealMind] Could not migrate saved recipes to Firestore:', e);
       }
       if (cancelled) return;
-      unsub = subscribeSavedRecipes(
+      
+      const unsubscribe = subscribeSavedRecipes(
         user.uid,
         (items) => {
           if (!cancelled) {
@@ -113,11 +114,17 @@ export function SavedRecipesProvider({ children }: { children: ReactNode }) {
           if (!cancelled) setSaved(loadFromStorage(key));
         }
       );
+      
+      if (cancelled) {
+        unsubscribe();
+      } else {
+        unsub = unsubscribe;
+      }
     })();
 
     return () => {
       cancelled = true;
-      unsub?.();
+      if (unsub) unsub();
     };
   }, [useRemote, user?.uid, key]);
 

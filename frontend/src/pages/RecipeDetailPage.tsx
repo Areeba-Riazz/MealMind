@@ -20,14 +20,14 @@ export default function RecipeDetailPage() {
       if (active) {
         setRecipe(JSON.parse(active));
       } else {
-        navigate('/ai-chef');
+        navigate('/chef');
       }
     } else {
       const found = saved.find(r => r.id === recipeId);
       if (found) {
         setRecipe(found);
       } else {
-        navigate('/ai-chef');
+        navigate('/chef');
       }
     }
   }, [recipeId, saved, navigate]);
@@ -330,7 +330,7 @@ export default function RecipeDetailPage() {
 
           {/* RECIPE DETAILS — always first (left or only column) */}
           <div className="rp-details-section">
-            <Link to="/demo" className="rp-back-btn">← Back to AI Chef</Link>
+            <Link to="/chef" className="rp-back-btn">← Back to AI Chef</Link>
 
             <div className="rp-header">
               <h1 className="rp-title">{recipe.title || recipe.recipeName}</h1>

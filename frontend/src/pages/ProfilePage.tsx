@@ -506,7 +506,7 @@ export default function ProfilePage() {
         .plan-title { font-family: 'Syne', sans-serif; font-size: 1.3rem; font-weight: 800; margin-bottom: 0.5rem; color: var(--text); }
         .plan-price { font-size: 1.8rem; font-weight: 800; margin-bottom: 1.2rem; color: var(--text); }
         .plan-price span { font-size: 0.9rem; color: var(--muted); font-weight: 400; }
-        .plan-features { list-style: none; padding: 0; margin: 0 0 1.8rem; flex: 1; }
+        .plan-features { list-style: none; padding: 0; margin: 0 0 1.8rem; flex: 1; text-align: left; }
         .plan-feature { display: flex; align-items: center; gap: 0.6rem; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.65rem; }
         .plan-feature b { color: var(--accent); }
 
@@ -1091,9 +1091,9 @@ export default function ProfilePage() {
 
             <div className="plan-grid">
               {[
-                { name: 'Free tier', price: '0', period: '/forever', features: ['3 AI meal ideas / day', 'Basic dietary filters', 'Standard community support'] },
-                { name: 'Pro Plan', price: '999', period: '/month', features: ['Unlimited AI recipes', 'Priority chatbot response', 'Advanced nutrition tracking', 'Personalised meal plans'] },
-                { name: 'Elite Chef', price: '2,499', period: '/month', features: ['Everything in Pro', 'Smart fridge integration', 'Family accounts (up to 5)', 'Early access to new features'] },
+                { name: 'Free', price: '0', period: '/forever', features: ['10 daily AI recommendations', 'Basic dietary filters', 'Standard community support'] },
+                { name: 'Pro', price: '499', period: '/month', features: ['Unlimited daily AI recipes', 'Multimodal Support (AI Vision)', 'Priority chatbot response', 'Advanced nutrition tracking', 'Personalised meal plans'] },
+                { name: 'Family', price: '1,499', period: '/month', features: ['Everything in Pro', 'Up to 5 family accounts', 'Monthly meal budget report', 'Early access to new features'] },
               ].map(plan => (
                 <div key={plan.name} className={`plan-card${currentPlan === plan.name ? ' active' : ''}`}>
                   <div className="plan-title">{plan.name}</div>

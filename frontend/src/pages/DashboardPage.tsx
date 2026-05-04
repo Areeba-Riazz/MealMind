@@ -8,7 +8,7 @@ import { usePreferences } from '../context/PreferencesContext';
 import { getDailyRecommendations, saveDailyRecommendations, type DailyRecommendationDoc } from '../lib/firestoreUserData';
 
 const QUICK_ACTIONS = [
-  { to: '/demo', label: 'AI Chef', emoji: '👨‍🍳', desc: 'Get a recipe from your fridge', accent: true },
+  { to: '/chef', label: 'AI Chef', emoji: '👨‍🍳', desc: 'Get a recipe from your fridge', accent: true },
   { to: '/cravings', label: 'Cravings', emoji: '🛵', desc: 'Order the perfect meal', accent: false },
   { to: '/meal-planner', label: 'Meal Planner', emoji: '📅', desc: 'Plan your week', accent: false },
   { to: '/saved', label: 'Saved', emoji: '📖', desc: 'Your saved recipes', accent: false },
@@ -233,7 +233,7 @@ export default function DashboardPage() {
           </h1>
           <p>Your AI chef is ready. Tell it what&apos;s in your fridge or what you&apos;re craving — get a recipe or a restaurant in 10 seconds.</p>
           <div className="dash-hero-btns">
-            <Link to="/demo" className="dash-btn-main">
+            <Link to="/chef" className="dash-btn-main">
               Try AI Chef 🚀
             </Link>
             <Link to="/cravings" className="dash-btn-ghost">
