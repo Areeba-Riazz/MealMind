@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, Navigate } from 'react-router-dom';
 import { getAuth, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { app } from '../lib/firebase';
 import { AUTH_CONFIG_MISSING, getAuthErrorMessage } from '../lib/authErrors';
@@ -21,10 +21,14 @@ export default function Signup() {
   const [showConfirm, setShowConfirm] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && user) {
-      navigate('/dashboard', { replace: true });
-    }
+    // We still keep this for post-signup navigation, but the primary redirect is now in the render block
   }, [user, authLoading, navigate]);
+
+  if (!authLoading && user) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  if (authLoading) return null; // Prevent form flash
 
   const handleSignup = async (e: FormEvent) => {
     e.preventDefault();

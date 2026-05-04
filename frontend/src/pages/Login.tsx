@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, Navigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
@@ -18,10 +18,14 @@ export default function Login() {
   const [showPass, setShowPass] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && user) {
-      navigate('/dashboard', { replace: true });
-    }
+    // We still keep this for post-login navigation, but the primary redirect is now in the render block
   }, [user, authLoading, navigate]);
+
+  if (!authLoading && user) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  if (authLoading) return null; // Prevent form flash
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
