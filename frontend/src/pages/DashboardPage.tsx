@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { useMemo, useEffect, useState } from 'react';
+import { useMemo, useEffect, useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSavedRecipes } from '../context/SavedRecipesContext';
 import { useFoodLinks } from '../context/FoodLinksContext';
@@ -25,6 +25,8 @@ export default function DashboardPage() {
 
   const [dailyRecs, setDailyRecs] = useState<DailyRecommendationDoc | null>(null);
   const [isGeneratingRecs, setIsGeneratingRecs] = useState(false);
+  const [recsError, setRecsError] = useState<string | null>(null);
+  const fetchedForDate = useRef<string | null>(null);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -39,6 +41,12 @@ export default function DashboardPage() {
 
     const fetchOrGenerateRecs = async () => {
       const today = getTodayStr();
+
+      // Don't re-fetch if we already ran for today in this session
+      if (fetchedForDate.current === today) return;
+      fetchedForDate.current = today;
+
+      setRecsError(null);
       try {
         const existing = await getDailyRecommendations(user.uid, today);
         if (existing) {
@@ -47,7 +55,9 @@ export default function DashboardPage() {
         }
 
         setIsGeneratingRecs(true);
-        const res = await fetch('/api/daily-recommendations', {
+        const apiBase = import.meta.env.VITE_API_URL || '';
+        console.log('[DailyRecs] Calling:', `${apiBase}/api/daily-recommendations`);
+        const res = await fetch(`${apiBase}/api/daily-recommendations`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
@@ -56,20 +66,25 @@ export default function DashboardPage() {
           })
         });
         
-        if (!res.ok) throw new Error('Failed to generate daily recommendations');
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(`Backend ${res.status}: ${errText}`);
+        }
         
         const data = await res.json();
         await saveDailyRecommendations(user.uid, today, data);
         setDailyRecs({ id: today, ...data });
       } catch (err) {
         console.error("Auto-generation of daily recommendations failed:", err);
+        setRecsError(err instanceof Error ? err.message : String(err));
+        fetchedForDate.current = null; // allow retry on next mount
       } finally {
         setIsGeneratingRecs(false);
       }
     };
 
     fetchOrGenerateRecs();
-  }, [user?.uid, preferences]);
+  }, [user?.uid]); // only re-run when user changes, not on every preferences update
 
   const firstName = user?.displayName?.split(' ')[0] ?? user?.email?.split('@')[0] ?? 'there';
 
@@ -207,12 +222,16 @@ export default function DashboardPage() {
       `}</style>
 
       <div className="dash-wrap">
-        {(isGeneratingRecs || dailyRecs) && (
+        {(isGeneratingRecs || dailyRecs || recsError) && (
           <div className="dash-daily-banner">
             {isGeneratingRecs ? (
               <div className="dash-daily-content loading">
                 <span className="dash-spinner">🪄</span>
                 <span>Cooking up today's recommendations...</span>
+              </div>
+            ) : recsError ? (
+              <div className="dash-daily-content loading" style={{ color: 'var(--accent)', fontSize: '0.82rem' }}>
+                <span>⚠️ Daily suggestions unavailable — check console for details</span>
               </div>
             ) : dailyRecs && (
               <Link to="/daily-recommendations" className="dash-daily-content">
